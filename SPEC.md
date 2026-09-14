@@ -125,3 +125,15 @@ d3-hierarchy elkjs lz-string fast-json-patch
 ## Out of scope — do not build
 C++ or JS tracing. Any backend, API route, or database. Auth. Docker.
 Server-side execution of any kind.
+
+## Milestone table
+#	Milestone	Est.
+1	Tracer	2–3 d
+2	Fixtures	1 d
+3	Delta encoding	1 d
+4	Player shell (fixtures only)	2–3 d
+5	Pyodide worker	2 d
+6	List + pointer inference	3–4 d
+7	Call stack	2–3 d
+8	Remaining renderers	~1 wk
+9	Ship	2 d
