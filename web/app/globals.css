@@ -753,6 +753,77 @@ button:disabled {
   color: var(--text-disabled);
 }
 
+/* ── Dict / Set buckets ────────────────────────────────────────────────── */
+
+.buckets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 520px;
+}
+
+.buckets-wrap {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bucket {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--cell-bg);
+  border: 1px solid var(--cell-bd);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.bucket-solo {
+  min-height: 0;
+  padding: 6px 9px;
+}
+
+.bucket-mutated {
+  background: var(--cell-mutated-bg);
+  border-color: #fbbf24;
+}
+
+.bucket-mutated .bucket-key,
+.bucket-mutated .bucket-value {
+  color: var(--cell-mutated-ink);
+}
+
+.bucket-key {
+  flex: none;
+  min-width: 54px;
+  font-weight: 500;
+}
+
+.bucket-arrow {
+  flex: none;
+  color: var(--text-gutter);
+  font-size: 11px;
+}
+
+.bucket-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bucket-more {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--text-gutter);
+  padding: 2px 0;
+}
+
 .viz-rest {
   margin-top: 6px;
   border-top: 1px solid var(--border);

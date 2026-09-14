@@ -100,6 +100,15 @@ export function inferForList(frame: Frame | null, length: number): ListInference
   return { pointers, spans, inWindow, active }
 }
 
+/**
+ * Identity for a Val, so dict keys and set members can be matched across steps
+ * by what they are rather than where they sit. Python reorders set iteration
+ * freely, and dict keys survive reinsertion, so position is not identity.
+ */
+export function valKey(val: Val): string {
+  return isRef(val) ? `#${val.ref}` : `=${JSON.stringify(val.v)}`
+}
+
 function sameVal(a: Val | undefined, b: Val | undefined): boolean {
   if (a === undefined || b === undefined) return a === b
   if (isRef(a) || isRef(b)) return isRef(a) && isRef(b) && a.ref === b.ref
@@ -117,6 +126,36 @@ export function mutatedIndices(current: HeapObj, previous: HeapObj | undefined):
 
   for (let i = 0; i < current.items.length; i++) {
     if (!sameVal(current.items[i], previous.items[i])) out.add(i)
+  }
+  return out
+}
+
+/** Dict keys whose value changed, plus keys that were not there before. */
+export function mutatedEntries(current: HeapObj, previous: HeapObj | undefined): Set<string> {
+  const out = new Set<string>()
+  if (!current || current.kind !== 'dict') return out
+  if (!previous || previous.kind !== 'dict') return out
+
+  const before = new Map<string, Val>()
+  for (const [key, value] of previous.entries) before.set(valKey(key), value)
+
+  for (const [key, value] of current.entries) {
+    const id = valKey(key)
+    if (!before.has(id) || !sameVal(before.get(id), value)) out.add(id)
+  }
+  return out
+}
+
+/** Set members that were not present in the previous step. */
+export function mutatedMembers(current: HeapObj, previous: HeapObj | undefined): Set<string> {
+  const out = new Set<string>()
+  if (!current || !('items' in current)) return out
+  if (!previous || !('items' in previous)) return out
+
+  const before = new Set(previous.items.map(valKey))
+  for (const item of current.items) {
+    const id = valKey(item)
+    if (!before.has(id)) out.add(id)
   }
   return out
 }

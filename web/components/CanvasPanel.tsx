@@ -1,12 +1,16 @@
 'use client'
 
+import { DictRender } from '@/components/render/Dict.tsx'
 import { ListRender } from '@/components/render/List.tsx'
+import { SetRender } from '@/components/render/Set.tsx'
 import { RunProgress } from '@/components/RunProgress.tsx'
 import {
   EMPTY_INFERENCE,
   inferForList,
   innermostFrame,
+  mutatedEntries,
   mutatedIndices,
+  mutatedMembers,
   namesForRef,
 } from '@/lib/infer.ts'
 import type { ProgressResponse } from '@/lib/pyodide/messages.ts'
@@ -23,6 +27,7 @@ type CanvasPanelProps = {
 }
 
 const SEQUENCE_KINDS = new Set(['list', 'tuple', 'deque'])
+const DRAWN_KINDS = new Set([...SEQUENCE_KINDS, 'dict', 'set'])
 
 function hasItems(obj: HeapObj): obj is Extract<HeapObj, { items: unknown[] }> {
   return 'items' in obj
@@ -44,8 +49,8 @@ export function CanvasPanel({
   const traceError = trace?.meta.error
 
   const frame = innermostFrame(snapshot)
-  const sequences = entries.filter(([, obj]) => SEQUENCE_KINDS.has(obj.kind) && hasItems(obj))
-  const others = entries.filter(([, obj]) => !SEQUENCE_KINDS.has(obj.kind) || !hasItems(obj))
+  const drawn = entries.filter(([, obj]) => DRAWN_KINDS.has(obj.kind))
+  const others = entries.filter(([, obj]) => !DRAWN_KINDS.has(obj.kind))
 
   return (
     <section className="canvas">
@@ -54,11 +59,11 @@ export function CanvasPanel({
           <span className="pane-label">Visualization</span>
           {snapshot && (
             <span className="chip">
-              {sequences.length} drawn · {count} heap object{count === 1 ? '' : 's'}
+              {drawn.length} drawn · {count} heap object{count === 1 ? '' : 's'}
             </span>
           )}
         </div>
-        <span className="pane-meta">list · tuple · deque</span>
+        <span className="pane-meta">list · tuple · deque · dict · set</span>
       </div>
 
       <div className="canvas-body">
@@ -96,31 +101,48 @@ export function CanvasPanel({
               </div>
             )}
 
-            {sequences.map(([heapId, obj]) => {
-              if (!hasItems(obj)) return null
+            {drawn.map(([heapId, obj]) => {
               const names = namesForRef(snapshot, heapId)
-              const inference =
-                obj.kind === 'list' ? inferForList(frame, obj.items.length) : EMPTY_INFERENCE
-              const mutated = mutatedIndices(obj, previous?.heap[heapId])
+              const before = previous?.heap[heapId]
+              const size = obj.kind === 'dict' ? obj.entries.length : hasItems(obj) ? obj.items.length : 0
 
               return (
                 <div className="viz-block" key={heapId}>
                   <div className="viz-title">
                     <span className="viz-name">{names[0] ?? `#${heapId.slice(-5)}`}</span>
                     <span className="viz-type">
-                      {obj.kind}[{obj.items.length}]
+                      {obj.kind === 'dict' ? `dict{${size}}` : `${obj.kind}[${size}]`}
                     </span>
                     {names.length > 1 && (
                       <span className="viz-alias">also {names.slice(1).join(', ')}</span>
                     )}
                   </div>
-                  <ListRender
-                    heapId={heapId}
-                    obj={obj}
-                    heap={heap}
-                    inference={inference}
-                    mutated={mutated}
-                  />
+
+                  {obj.kind === 'dict' ? (
+                    <DictRender
+                      heapId={heapId}
+                      obj={obj}
+                      heap={heap}
+                      mutated={mutatedEntries(obj, before)}
+                    />
+                  ) : obj.kind === 'set' ? (
+                    <SetRender
+                      heapId={heapId}
+                      obj={obj}
+                      heap={heap}
+                      mutated={mutatedMembers(obj, before)}
+                    />
+                  ) : hasItems(obj) ? (
+                    <ListRender
+                      heapId={heapId}
+                      obj={obj}
+                      heap={heap}
+                      inference={
+                        obj.kind === 'list' ? inferForList(frame, obj.items.length) : EMPTY_INFERENCE
+                      }
+                      mutated={mutatedIndices(obj, before)}
+                    />
+                  ) : null}
                 </div>
               )
             })}
