@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Node / Next
+web/node_modules/
+web/.next/
+web/out/
+web/next-env.d.ts
+*.tsbuildinfo
+
+# Generated into public/ by web/scripts/sync-fixtures.mjs
+web/public/fixtures/
+web/public/examples/
+web/public/monaco/
+
+.DS_Store

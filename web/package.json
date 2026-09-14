@@ -1,0 +1,27 @@
+{
+  "name": "dsa-visualizer-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "predev": "node scripts/sync-fixtures.mjs",
+    "dev": "next dev",
+    "prebuild": "node scripts/sync-fixtures.mjs",
+    "build": "next build",
+    "lint": "next lint",
+    "test": "node --test \"lib/trace/*.test.ts\""
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "monaco-editor": "^0.52.0",
+    "next": "^15.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.8.0"
+  }
+}
