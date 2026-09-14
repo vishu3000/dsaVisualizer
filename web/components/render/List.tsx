@@ -8,7 +8,7 @@ import type { HeapObj, Val } from '@/lib/trace/types.ts'
 /** Above this, a grid of cells stops being readable and costs more than it shows. */
 export const MAX_CELLS = 128
 
-const CELL_MAX = 58
+const CELL_MAX = 76
 const GAP = 8
 
 type ListProps = {

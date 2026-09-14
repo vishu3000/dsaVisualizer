@@ -731,10 +731,11 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1;
-  max-height: 58px;
+  /* Height is fixed rather than following width: cells are wider than tall so
+     longer values (list[10], "abc") fit without shrinking the type. */
+  height: 58px;
   min-width: 0;
-  padding: 2px;
+  padding: 2px 6px;
   border-radius: 6px;
   font-family: var(--font-mono), monospace;
   font-size: 15px;
