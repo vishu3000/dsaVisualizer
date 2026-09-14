@@ -4,15 +4,32 @@ Heap objects are keyed by id() and referenced, never inlined, so `b = a`
 yields two names pointing at one heap entry.
 """
 
+import math
 from collections import deque
 
 from .limits import MAX_DEPTH, MAX_ITEMS
 
 
+def _prim(value):
+    """
+    JSON has no inf or nan, and both encoders run with allow_nan=False, so a
+    float like math.inf would abort the whole trace rather than spoil one
+    cell. Carry it across as the text Python itself prints — 'inf', '-inf',
+    'nan' — which is also what a reader expects to see in the value.
+
+    The cost is that a string literally spelled "inf" is indistinguishable
+    from the float once serialized. That is a tolerable trade for keeping the
+    Val shape SPEC.md defines: {'v': number | string | boolean | null}.
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        return repr(value)
+    return value
+
+
 def serialize_value(value, heap, depth=0):
     """Return a Val ({'v': prim} or {'ref': id}), filling `heap` as a side effect."""
     if value is None or isinstance(value, (bool, int, float, str)):
-        return {"v": value}
+        return {"v": _prim(value)}
 
     obj_id = str(id(value))
 

@@ -1,6 +1,8 @@
+import json
 import sys
 import textwrap
 
+from tracer.delta import encode
 from tracer.limits import MAX_DEPTH, STEP_CAP, USER_FILENAME
 from tracer.tracer import run_trace
 
@@ -391,3 +393,39 @@ def test_stack_is_innermost_last():
     )
     deepest = max(trace["steps"], key=lambda s: len(s["stack"]))
     assert [f["fn"] for f in deepest["stack"]] == ["<module>", "a", "b"]
+
+
+def test_infinite_and_nan_floats_survive_as_text():
+    trace = run(
+        """
+        big = float("inf")
+        small = float("-inf")
+        bad = float("nan")
+        ordinary = 0.5
+        """
+    )
+    seen = all_locals(trace)
+    assert seen["big"] == {"v": "inf"}
+    assert seen["small"] == {"v": "-inf"}
+    assert seen["bad"] == {"v": "nan"}
+    # Finite floats must stay numbers, not become strings.
+    assert seen["ordinary"] == {"v": 0.5}
+
+
+def test_trace_holding_infinity_is_json_serializable():
+    # The shape that used to abort a whole run: a dict of distances seeded with
+    # math.inf, the way Dijkstra and friends are written.
+    trace = run(
+        """
+        import math
+
+        dist = {"a": math.inf, "b": 0}
+        dist["a"] = 3
+        """
+    )
+    # allow_nan=False is what both the CLI and the browser worker encode with.
+    payload = json.dumps(encode(trace), allow_nan=False)
+    assert '"inf"' in payload
+
+    rebuilt = json.loads(payload)
+    assert rebuilt["meta"]["steps"] == len(trace["steps"])
