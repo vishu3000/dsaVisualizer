@@ -2073,3 +2073,26 @@ select.field-input {
   background-repeat: no-repeat;
   padding-right: 28px;
 }
+
+.source-preview {
+  margin: 0;
+  max-height: 170px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--cell-dim-bd);
+  border-radius: 5px;
+  background: var(--cell-dim-bg);
+  color: var(--text-dim);
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.source-empty {
+  padding: 10px;
+  border: 1px dashed var(--cell-dim-bd);
+  border-radius: 5px;
+  font-size: 11.5px;
+  color: var(--text-disabled);
+}

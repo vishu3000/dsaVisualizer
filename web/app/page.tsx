@@ -180,7 +180,7 @@ export default function Page() {
 
       {showNew && (
         <NewFixtureModal
-          initialSource={source}
+          source={source}
           taken={available}
           onClose={() => setShowNew(false)}
           onSaved={() => {

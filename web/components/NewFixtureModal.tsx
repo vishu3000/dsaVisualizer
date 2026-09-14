@@ -11,13 +11,13 @@ import {
 import { CATEGORY_LABELS, PROBLEM_GROUPS } from '@/lib/problems.ts'
 import { PROGRESS_LABELS } from '@/lib/pyodide/messages.ts'
 import { RunFailure, runSource } from '@/lib/runner.ts'
-import type { Trace } from '@/lib/trace/types.ts'
 
 const NEW_CATEGORY = '__new__'
+const PREVIEW_LINES = 8
 
 type ModalProps = {
-  /** Prefilled from the editor, so "capture what I have" is one click. */
-  initialSource: string
+  /** Whatever is in the editor right now — the modal never edits it. */
+  source: string
   taken: string[]
   onClose: () => void
   onSaved: (slug: string) => void
@@ -26,17 +26,15 @@ type ModalProps = {
 type Phase =
   | { stage: 'editing' }
   | { stage: 'tracing'; message: string }
-  | { stage: 'traced'; trace: Trace }
-  | { stage: 'saving' }
+  | { stage: 'writing' }
   | { stage: 'failed'; message: string; detail?: string }
 
-export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: ModalProps) {
+export function NewFixtureModal({ source, taken, onClose, onSaved }: ModalProps) {
   const [slug, setSlug] = useState('')
   const [title, setTitle] = useState('')
   const [blurb, setBlurb] = useState('')
   const [category, setCategory] = useState(CATEGORY_LABELS[0] ?? NEW_CATEGORY)
   const [newCategory, setNewCategory] = useState('')
-  const [source, setSource] = useState(initialSource)
   const [phase, setPhase] = useState<Phase>({ stage: 'editing' })
   const [note, setNote] = useState<string | null>(null)
   const slugRef = useRef<HTMLInputElement | null>(null)
@@ -53,6 +51,7 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const lines = source === '' ? [] : source.replace(/\n$/, '').split('\n')
   const creatingCategory = category === NEW_CATEGORY
   const resolvedCategory = creatingCategory ? newCategory.trim() : category
 
@@ -60,17 +59,26 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
   const categoryError =
     creatingCategory && newCategory.trim() === '' ? 'Name the new category.' : null
 
+  const busy = phase.stage === 'tracing' || phase.stage === 'writing'
   const ready =
-    slug !== '' && !slugError && !categoryError && source.trim() !== '' && title.trim() !== ''
+    slug !== '' &&
+    !slugError &&
+    !categoryError &&
+    title.trim() !== '' &&
+    source.trim() !== '' &&
+    canWriteToDisk() &&
+    !busy
 
-  async function trace() {
+  /** One action: trace what the editor holds, then write the files. */
+  async function save() {
     setNote(null)
     setPhase({ stage: 'tracing', message: PROGRESS_LABELS.boot })
+
+    let trace
     try {
-      const result = await runSource(source, {
+      trace = await runSource(source, {
         onProgress: (progress) => setPhase({ stage: 'tracing', message: progress.message }),
       })
-      setPhase({ stage: 'traced', trace: result })
     } catch (cause) {
       const failure = cause instanceof RunFailure ? cause : null
       setPhase({
@@ -78,22 +86,19 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
         message: failure?.message ?? String(cause),
         detail: failure?.detail,
       })
+      return
     }
-  }
 
-  async function save() {
-    if (phase.stage !== 'traced') return
     const draft: FixtureDraft = {
       slug,
       title: title.trim(),
       blurb: blurb.trim() || 'added from the app',
       category: resolvedCategory,
       source,
-      trace: phase.trace,
+      trace,
     }
 
-    const traced = phase.trace
-    setPhase({ stage: 'saving' })
+    setPhase({ stage: 'writing' })
     const outcome = await saveFixture(draft, PROBLEM_GROUPS)
 
     if (outcome.status === 'saved') {
@@ -101,7 +106,7 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
       return
     }
 
-    setPhase({ stage: 'traced', trace: traced })
+    setPhase({ stage: 'editing' })
     setNote(
       outcome.status === 'cancelled' ? 'Save cancelled — nothing written.' : outcome.message,
     )
@@ -172,39 +177,39 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
                 <option value={NEW_CATEGORY}>+ New category…</option>
               </select>
               <span className="field-note">
-                {creatingCategory ? 'added beside the existing ones' : 'existing category'}
+                {categoryError ? (
+                  <span className="field-error">{categoryError}</span>
+                ) : creatingCategory ? (
+                  'added beside the existing ones'
+                ) : (
+                  'existing category'
+                )}
               </span>
             </label>
 
-            <label className="field">
-              <span className="field-label">
-                {creatingCategory ? 'New category name' : 'Description'}
-              </span>
-              {creatingCategory ? (
+            {creatingCategory ? (
+              <label className="field">
+                <span className="field-label">New category name</span>
                 <input
                   className="field-input"
                   value={newCategory}
                   onChange={(event) => setNewCategory(event.target.value)}
                   placeholder="Sorting"
                 />
-              ) : (
+                <span className="field-note">one line, sentence case</span>
+              </label>
+            ) : (
+              <label className="field">
+                <span className="field-label">Description</span>
                 <input
                   className="field-input"
                   value={blurb}
                   onChange={(event) => setBlurb(event.target.value)}
                   placeholder="divide, sort halves, merge back"
                 />
-              )}
-              <span className="field-note">
-                {categoryError ? (
-                  <span className="field-error">{categoryError}</span>
-                ) : creatingCategory ? (
-                  'one line, sentence case'
-                ) : (
-                  'one line under the title'
-                )}
-              </span>
-            </label>
+                <span className="field-note">one line under the title</span>
+              </label>
+            )}
           </div>
 
           {creatingCategory && (
@@ -219,25 +224,37 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
             </label>
           )}
 
-          <label className="field field-grow">
-            <span className="field-label">Python source</span>
-            <textarea
-              className="field-code"
-              value={source}
-              onChange={(event) => setSource(event.target.value)}
-              spellCheck={false}
-              rows={12}
-            />
-            <span className="field-note">
-              Add <code># @viz stack items</code> style hints to pick renderers.
+          {/* Read-only on purpose: the editor is where code gets written. */}
+          <div className="field">
+            <span className="field-label">
+              Source · from the editor · {lines.length} line{lines.length === 1 ? '' : 's'}
             </span>
-          </label>
+            {lines.length === 0 ? (
+              <div className="source-empty">
+                The editor is empty. Close this, write your code, then reopen.
+              </div>
+            ) : (
+              <pre className="source-preview">
+                {lines.slice(0, PREVIEW_LINES).join('\n')}
+                {lines.length > PREVIEW_LINES && `\n… ${lines.length - PREVIEW_LINES} more lines`}
+              </pre>
+            )}
+          </div>
 
           {phase.stage === 'tracing' && (
             <div className="modal-status">
               <span className="pill pill-ready">
                 <span className="pill-dot pill-dot-pulse" />
                 {phase.message}
+              </span>
+            </div>
+          )}
+
+          {phase.stage === 'writing' && (
+            <div className="modal-status">
+              <span className="pill pill-ready">
+                <span className="pill-dot pill-dot-pulse" />
+                writing files
               </span>
             </div>
           )}
@@ -249,58 +266,27 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
             </div>
           )}
 
-          {phase.stage === 'traced' && (
-            <div className="modal-result">
-              <span className="pill pill-ready">
-                <span className="pill-dot" />
-                traced · {phase.trace.meta.steps.toLocaleString()} steps
-              </span>
-              {phase.trace.meta.error && (
-                <span className="pill pill-error">
-                  <span className="pill-dot" />
-                  halted · {phase.trace.meta.error.type}
-                </span>
-              )}
-              <span className="modal-hints">
-                will be filed under {resolvedCategory || '…'}
-              </span>
-            </div>
-          )}
-
           {note && <div className="modal-note">{note}</div>}
         </div>
 
         <div className="modal-foot">
           <span className="modal-foot-note">
             {canWriteToDisk()
-              ? 'Save writes the trace, the source and the catalogue entry. Pick the repository root when asked.'
+              ? `Saves the trace, the source and a ${resolvedCategory || '…'} entry. Pick the repository root when asked.`
               : 'This browser cannot write files. Use Chrome or Edge to save.'}
           </span>
 
           <div className="modal-actions">
-            <button type="button" className="ghost-button" onClick={onClose}>
+            <button type="button" className="ghost-button" onClick={onClose} disabled={busy}>
               Cancel
             </button>
-
-            {phase.stage === 'traced' || phase.stage === 'saving' ? (
-              <button
-                type="button"
-                className="run-button"
-                onClick={save}
-                disabled={!canWriteToDisk() || phase.stage === 'saving'}
-              >
-                {phase.stage === 'saving' ? 'Saving…' : 'Save'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="run-button"
-                onClick={trace}
-                disabled={!ready || phase.stage === 'tracing'}
-              >
-                {phase.stage === 'tracing' ? 'Tracing…' : 'Trace it'}
-              </button>
-            )}
+            <button type="button" className="run-button" onClick={save} disabled={!ready}>
+              {phase.stage === 'tracing'
+                ? 'Tracing…'
+                : phase.stage === 'writing'
+                  ? 'Saving…'
+                  : 'Save'}
+            </button>
           </div>
         </div>
       </div>
