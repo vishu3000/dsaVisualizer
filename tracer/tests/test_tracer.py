@@ -429,3 +429,46 @@ def test_trace_holding_infinity_is_json_serializable():
 
     rebuilt = json.loads(payload)
     assert rebuilt["meta"]["steps"] == len(trace["steps"])
+
+
+def test_index_names_are_the_ones_used_as_subscripts():
+    trace = run(
+        """
+        def max_profit(prices):
+            min_price = 99
+            best = 0
+            for price in prices:
+                min_price = min(price, min_price)
+                best = max(best, price - min_price)
+            return best
+
+        max_profit([7, 1, 5, 3, 6, 4])
+        """
+    )
+    # Nothing is ever subscripted here, so nothing is a cursor.
+    assert trace["meta"]["indexNames"] == []
+
+
+def test_index_names_include_arithmetic_and_slices():
+    trace = run(
+        """
+        arr = [1, 2, 3, 4]
+        mid = 1
+        lo = 0
+        hi = 3
+        total = arr[mid] + arr[mid + 1]
+        part = arr[lo:hi]
+        pairs = {"k": 1}
+        got = pairs["k"]
+        print(total, part, got)
+        """
+    )
+    # `mid` bare and inside mid + 1; lo/hi from the slice. A literal key is not
+    # a name, so "k" contributes nothing.
+    assert trace["meta"]["indexNames"] == ["hi", "lo", "mid"]
+
+
+def test_index_names_survive_a_syntax_error():
+    trace = run_trace("def f(:\n    pass\n")
+    assert trace["meta"]["error"]["type"] == "SyntaxError"
+    assert trace["meta"]["indexNames"] == []

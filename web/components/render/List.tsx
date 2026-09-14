@@ -11,6 +11,9 @@ export const MAX_CELLS = 128
 const CELL_MAX = 76
 const GAP = 8
 
+/** How far a second-lane pointer label drops. One label height plus air. */
+const LANE_DROP = 22
+
 type ListProps = {
   heapId: string
   obj: Extract<HeapObj, { items: Val[] }>
@@ -74,6 +77,16 @@ export function ListRender({ heapId, obj, heap, inference, mutated }: ListProps)
     byIndex.set(pointer.index, bucket)
   }
 
+  // A label like `current_price 3` is wider than its 76px column and spills
+  // into the neighbours, so two pointers on adjacent cells print on top of
+  // each other. Alternating lanes drops every other label by one row: the
+  // arrows stay put, and no two labels can share a line unless their cells
+  // are at least two apart.
+  const lanes = new Map<number, number>()
+  ;[...byIndex.keys()]
+    .sort((a, b) => a - b)
+    .forEach((index, order) => lanes.set(index, order % 2))
+
   return (
     <div className="list-render" style={{ maxWidth }}>
       {inference.spans.length > 0 && (
@@ -128,10 +141,13 @@ export function ListRender({ heapId, obj, heap, inference, mutated }: ListProps)
                 <span className={hits[0].paired ? 'pointer-arrow' : 'pointer-arrow pointer-hot'}>
                   ▲
                 </span>
-                {hits.map((hit) => (
+                {hits.map((hit, rank) => (
                   <span
                     key={hit.name}
                     className={hit.paired ? 'pointer-label' : 'pointer-label pointer-hot'}
+                    style={
+                      rank === 0 && lanes.get(index) ? { marginTop: LANE_DROP } : undefined
+                    }
                   >
                     {hit.name} {hit.index}
                   </span>

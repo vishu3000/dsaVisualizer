@@ -108,8 +108,15 @@ Pyodide or the store.
 
 ## Pointer inference (lib/infer.ts)
 For each int local in the innermost frame: if `0 <= v < len(list)` for a
-visualized list, render a labeled arrow beneath that cell. If two such names
-pair up (lo/hi, left/right, start/end, i/j), shade the span between them.
+visualized list AND the name is one the source subscripts with (`meta.indexNames`,
+collected from the AST: the `i` in `arr[i]`, `arr[i + 1]`, `arr[lo:hi]`), render
+a labeled arrow beneath that cell. If two such names pair up (lo/hi, left/right,
+start/end, i/j), shade the span between them; a recognized pair is drawn whether
+or not it is subscripted, since `lo`/`hi` are often only compared and reassigned.
+
+Value alone is not enough to identify a cursor: `max_profit = 4` over a
+six-element list is indistinguishable from an index into it, and `for x in xs`
+binds elements that are usually valid indices into their own list.
 
 ## Cell states (CSS variables, all renderers)
 default, active, in-window, just-mutated, dimmed/out-of-range.

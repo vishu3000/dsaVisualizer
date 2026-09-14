@@ -105,6 +105,9 @@ export function CanvasPanel({
 
   const traceError = trace?.meta.error
   const count = Object.keys(heap).length
+  // null, not [], for a trace recorded before the tracer reported this: an
+  // empty list means "this program indexes nothing", which is a real answer.
+  const indexNames = trace?.meta.indexNames ?? null
 
   return (
     <section className="canvas">
@@ -223,7 +226,7 @@ export function CanvasPanel({
                     heap={heap}
                     inference={
                       plan.kind === 'list' && 'items' in plan.obj
-                        ? inferForList(frame, plan.obj.items.length)
+                        ? inferForList(frame, plan.obj.items.length, indexNames)
                         : EMPTY_INFERENCE
                     }
                     mutated={mutatedIndices(plan.obj, previous?.heap[plan.heapId])}

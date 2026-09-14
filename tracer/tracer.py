@@ -42,6 +42,34 @@ def parse_viz_hints(source):
     return hints
 
 
+def parse_index_names(tree):
+    """Names the program uses to index something: the `i` in `arr[i]`.
+
+    Pointer inference draws an arrow for any int local that happens to land
+    inside a visualised list, which catches accumulators and loop values that
+    have nothing to do with it — `max_profit = 4` over a six-element list of
+    prices looks exactly like a cursor at cell 4. A name that never appears
+    inside brackets is not an index, and the source says so outright.
+
+    The whole subscript expression is walked rather than only a bare Name, so
+    `arr[mid + 1]` and `table[i - 1]` count. Slices are included: the lo and
+    hi of `arr[lo:hi]` are indices too.
+
+    The set is not tied to a particular list. Resolving `arr` back to a heap
+    object would mean following aliases and parameter names through the whole
+    program, and the extra precision is not worth that: a name used to index
+    anything is a plausible cursor, and the in-range check still has to pass.
+    """
+    names = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Subscript):
+            continue
+        for inner in ast.walk(node.slice):
+            if isinstance(inner, ast.Name):
+                names.add(inner.id)
+    return sorted(names)
+
+
 def check_imports(source, tree):
     """Return a rejection message for the first non-whitelisted import, else None."""
     for node in ast.walk(tree):
@@ -89,6 +117,8 @@ def run_trace(source):
             viz,
         )
 
+    index_names = parse_index_names(tree)
+
     rejected = check_imports(source, tree)
     if rejected is not None:
         line, message = rejected
@@ -102,6 +132,7 @@ def run_trace(source):
                 "traceback": "",
             },
             viz,
+            index_names,
         )
 
     compiled = compile(tree, USER_FILENAME, "exec")
@@ -167,7 +198,7 @@ def run_trace(source):
     finally:
         sys.settrace(previous)
 
-    return _result(steps, truncated, error, viz)
+    return _result(steps, truncated, error, viz, index_names)
 
 
 def _py_error(exc):
@@ -185,8 +216,13 @@ def _py_error(exc):
     }
 
 
-def _result(steps, truncated, error, viz):
-    meta = {"steps": len(steps), "truncated": truncated, "viz": viz}
+def _result(steps, truncated, error, viz, index_names=()):
+    meta = {
+        "steps": len(steps),
+        "truncated": truncated,
+        "viz": viz,
+        "indexNames": list(index_names),
+    }
     if error is not None:
         meta["error"] = error
     return {"meta": meta, "steps": steps}

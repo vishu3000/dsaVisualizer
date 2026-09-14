@@ -27,6 +27,11 @@ function steps(name: string): Snapshot[] {
   return Array.from({ length: trace.meta.steps }, (_, i) => reconstruct(trace, i))
 }
 
+/** What the tracer recorded as subscripted, the way the app passes it in. */
+function indexNamesOf(name: string): string[] | null {
+  return load(name).meta.indexNames ?? null
+}
+
 /** The list bound to `name` in the innermost frame, if there is one. */
 function listFor(snapshot: Snapshot, name: string) {
   const frame = innermostFrame(snapshot)
@@ -56,6 +61,7 @@ describe('intLocals', () => {
 
 describe('binary_search', () => {
   const snapshots = steps('binary_search')
+  const indexNames = indexNamesOf('binary_search')
 
   it('pairs lo/hi into a span and leaves mid as a lone pointer', () => {
     const withAll = snapshots.filter((step) => {
@@ -67,7 +73,7 @@ describe('binary_search', () => {
     for (const step of withAll) {
       const list = listFor(step, 'arr')
       assert.ok(list)
-      const inference = inferForList(innermostFrame(step), list.obj.items.length)
+      const inference = inferForList(innermostFrame(step), list.obj.items.length, indexNames)
 
       assert.equal(inference.spans.length, 1)
       assert.deepEqual(inference.spans[0].names, ['lo', 'hi'])
@@ -92,7 +98,7 @@ describe('binary_search', () => {
     })!
     const list = listFor(step, 'arr')!
     const frame = innermostFrame(step)!
-    const inference = inferForList(frame, list.obj.items.length)
+    const inference = inferForList(frame, list.obj.items.length, indexNames)
 
     const lo = (frame.locals.lo as { v: number }).v
     const hi = (frame.locals.hi as { v: number }).v
@@ -106,7 +112,7 @@ describe('binary_search', () => {
     for (const step of snapshots) {
       const list = listFor(step, 'arr')
       if (!list) continue
-      const inference = inferForList(innermostFrame(step), list.obj.items.length)
+      const inference = inferForList(innermostFrame(step), list.obj.items.length, indexNames)
       for (const pointer of inference.pointers) {
         assert.ok(pointer.index >= 0 && pointer.index < list.obj.items.length)
       }
@@ -118,7 +124,7 @@ describe('binary_search', () => {
     for (const step of snapshots) {
       const list = listFor(step, 'arr')
       if (!list) continue
-      const inference = inferForList(innermostFrame(step), list.obj.items.length)
+      const inference = inferForList(innermostFrame(step), list.obj.items.length, indexNames)
       const names = inference.pointers.map((p) => p.name)
       assert.ok(!names.includes('target'))
       assert.ok(!names.includes('guess'))
@@ -131,7 +137,7 @@ describe('binary_search', () => {
       return frame?.locals.lo && frame.locals.hi
     })!
     const list = listFor(step, 'arr')!
-    const inference = inferForList(innermostFrame(step), list.obj.items.length)
+    const inference = inferForList(innermostFrame(step), list.obj.items.length, indexNames)
 
     for (let i = 0; i < list.obj.items.length; i++) {
       const state = cellState(i, inference, new Set())
@@ -158,6 +164,7 @@ describe('binary_search', () => {
 
 describe('sliding_window', () => {
   const snapshots = steps('sliding_window')
+  const indexNames = indexNamesOf('sliding_window')
 
   it('pairs left/right into a span', () => {
     const withBoth = snapshots.filter((step) => {
@@ -170,7 +177,7 @@ describe('sliding_window', () => {
     for (const step of withBoth) {
       const list = listFor(step, 'chars')
       if (!list) continue
-      const inference = inferForList(innermostFrame(step), list.obj.items.length)
+      const inference = inferForList(innermostFrame(step), list.obj.items.length, indexNames)
       if (inference.spans.length === 0) continue
 
       sawSpan = true
@@ -185,7 +192,7 @@ describe('sliding_window', () => {
     for (const step of snapshots) {
       const list = listFor(step, 'chars')
       if (!list) continue
-      const inference = inferForList(innermostFrame(step), list.obj.items.length)
+      const inference = inferForList(innermostFrame(step), list.obj.items.length, indexNames)
       if (inference.spans.length > 0) widths.push(inference.inWindow.size)
     }
     assert.ok(widths.length > 3)
@@ -255,5 +262,68 @@ describe('cellState precedence', () => {
   it('stays default when no span is on screen', () => {
     const bare = { pointers: [], spans: [], inWindow: new Set<number>(), active: new Set<number>() }
     assert.equal(cellState(0, bare, new Set()), 'default')
+  })
+})
+
+describe('names the source never subscripts', () => {
+  // The reported case: an accumulator whose value happens to be a valid index.
+  //
+  //   def maxProfit(prices):
+  //       min_price, max_profit = float("inf"), 0
+  //       for current_price in prices:
+  //           ...
+  //
+  // prices has six slots, so min_price=1, current_price=3 and max_profit=4 all
+  // land inside it. None of them index anything.
+  const frame = {
+    fn: 'maxProfit',
+    line: 5,
+    locals: {
+      prices: { ref: '1' },
+      min_price: { v: 1 },
+      max_profit: { v: 4 },
+      current_price: { v: 3 },
+    },
+  } as never
+
+  it('draws nothing when the program indexes nothing', () => {
+    const inference = inferForList(frame, 6, [])
+    assert.deepEqual(inference.pointers, [])
+    assert.deepEqual(inference.spans, [])
+    assert.equal(inference.active.size, 0)
+  })
+
+  it('draws only the name that is used as a subscript', () => {
+    const inference = inferForList(frame, 6, ['current_price'])
+    assert.deepEqual(
+      inference.pointers.map((p) => p.name),
+      ['current_price'],
+    )
+  })
+
+  it('still draws a recognised pair that is never subscripted', () => {
+    // binary search compares and reassigns lo/hi but only ever writes arr[mid].
+    const search = {
+      fn: 'binary_search',
+      line: 9,
+      locals: { arr: { ref: '1' }, lo: { v: 2 }, hi: { v: 5 }, mid: { v: 3 }, guess: { v: 4 } },
+    } as never
+
+    const inference = inferForList(search, 10, ['mid'])
+    assert.deepEqual(inference.spans[0].names, ['lo', 'hi'])
+    assert.deepEqual(
+      inference.pointers.map((p) => p.name).sort(),
+      ['hi', 'lo', 'mid'],
+    )
+    // guess is an int in range, subscripts nothing, and is not half of a pair.
+    assert.ok(!inference.pointers.some((p) => p.name === 'guess'))
+  })
+
+  it('falls back to every in-range int when the trace predates indexNames', () => {
+    const inference = inferForList(frame, 6, null)
+    assert.deepEqual(
+      inference.pointers.map((p) => p.name).sort(),
+      ['current_price', 'max_profit', 'min_price'],
+    )
   })
 })

@@ -36,6 +36,11 @@ export type Trace = {
     // Not in SPEC.md's type block, but the tracer requirements mandate it:
     // `# @viz <kind> <varname>` comments come back as a render override map.
     viz: Record<string, string>
+    // Names the source uses to subscript something — the `i` in `arr[i]`.
+    // Pointer inference needs it to tell a cursor from an accumulator that
+    // merely holds an in-range number. Absent on traces recorded before it
+    // existed, which infer.ts reads as "no information".
+    indexNames?: string[]
   }
   init: Snapshot
   keyframes: Record<number, Snapshot> // every 500 steps

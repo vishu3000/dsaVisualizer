@@ -60,11 +60,23 @@ export function intLocals(frame: Frame): Map<string, number> {
   return out
 }
 
-export function inferForList(frame: Frame | null, length: number): ListInference {
+/**
+ * @param indexNames Names the source actually subscripts, from meta.indexNames.
+ *   Being an int that lands inside the list is not enough to be a cursor —
+ *   `max_profit = 4` over six prices looks identical to one. Pass null for a
+ *   trace recorded before the tracer reported this, where every in-range int
+ *   is the best guess available.
+ */
+export function inferForList(
+  frame: Frame | null,
+  length: number,
+  indexNames: string[] | null,
+): ListInference {
   if (!frame || length === 0) return EMPTY_INFERENCE
 
   const ints = intLocals(frame)
   const indexes = (value: number) => value >= 0 && value < length
+  const subscripts = indexNames === null ? null : new Set(indexNames)
 
   const spans: SpanHit[] = []
   const paired = new Set<string>()
@@ -79,9 +91,16 @@ export function inferForList(frame: Frame | null, length: number): ListInference
     paired.add(b)
   }
 
+  // A recognised pair earns its arrows through the span alone: SPEC.md names
+  // lo/hi and friends outright, and binary search never subscripts either one.
+  const isCursor = (name: string) =>
+    paired.has(name) || subscripts === null || subscripts.has(name)
+
   const pointers: PointerHit[] = []
   for (const [name, value] of ints) {
-    if (indexes(value)) pointers.push({ name, index: value, paired: paired.has(name) })
+    if (indexes(value) && isCursor(name)) {
+      pointers.push({ name, index: value, paired: paired.has(name) })
+    }
   }
   pointers.sort((a, b) => a.index - b.index || a.name.localeCompare(b.name))
 
