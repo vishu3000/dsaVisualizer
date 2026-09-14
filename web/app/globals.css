@@ -411,8 +411,119 @@ button:disabled {
 .body {
   flex: 1;
   display: grid;
-  grid-template-columns: 40% 60%;
+  grid-template-columns: 208px minmax(0, 38%) minmax(0, 1fr);
   min-height: 0;
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-chrome);
+}
+
+.sidebar-head {
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 8px;
+}
+
+.sidebar-group {
+  margin-bottom: 12px;
+}
+
+.sidebar-group-label {
+  padding: 0 6px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-gutter);
+}
+
+.problem {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+}
+
+.problem:hover:not(:disabled) {
+  background: var(--bg-control);
+}
+
+.problem:disabled {
+  opacity: 0.5;
+}
+
+.problem-current {
+  background: var(--cell-active-bg);
+  border-color: rgb(244 114 182 / 32%);
+}
+
+.problem-current:hover:not(:disabled) {
+  background: var(--cell-active-bg);
+}
+
+.problem-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.problem-current .problem-title {
+  color: var(--cell-active-ink);
+}
+
+.problem-blurb {
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--text-gutter);
+}
+
+.sidebar-foot {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.key-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-gutter);
+}
+
+kbd {
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--bg-control);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 3px 4px;
 }
 
 .pane-head {

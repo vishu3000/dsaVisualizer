@@ -5,8 +5,12 @@ import { useEffect, useState } from 'react'
 import { CanvasPanel } from '@/components/CanvasPanel.tsx'
 import { CodePane } from '@/components/CodePane.tsx'
 import { InspectorPanel } from '@/components/InspectorPanel.tsx'
+import { Sidebar } from '@/components/Sidebar.tsx'
 import { TransportBar } from '@/components/TransportBar.tsx'
+import { PROBLEM_SLUGS } from '@/lib/problems.ts'
+import { encodeProblem, encodeSource, parseHash, writeHash } from '@/lib/share.ts'
 import { BASE_INTERVAL_MS, usePlayer, usePreviousSnapshot, useSnapshot } from '@/lib/store.ts'
+import { useTransportKeys } from '@/lib/useTransportKeys.ts'
 
 function StatusPill() {
   const status = usePlayer((state) => state.status)
@@ -73,6 +77,7 @@ export default function Page() {
   const progress = usePlayer((state) => state.progress)
   const elapsedMs = usePlayer((state) => state.elapsedMs)
   const dirty = usePlayer((state) => state.dirty)
+  const origin = usePlayer((state) => state.origin)
   const currentStep = usePlayer((state) => state.currentStep)
   const playing = usePlayer((state) => state.playing)
   const speed = usePlayer((state) => state.speed)
@@ -81,15 +86,39 @@ export default function Page() {
   const previous = usePreviousSnapshot()
   const running = status === 'running'
 
+  useTransportKeys()
+
+  // Boot: a shared link wins over the default problem. Shared source is
+  // re-executed rather than shipped with a trace, so links stay short.
   useEffect(() => {
     fetch('fixtures/index.json')
       .then((response) => response.json())
-      .then((names: string[]) => {
-        setFixtures(names)
-        if (names.length > 0) load(names[0])
-      })
+      .then((names: string[]) => setFixtures(names))
       .catch(() => setFixtures([]))
+
+    const target = parseHash(window.location.hash)
+
+    if (target?.kind === 'source') {
+      const player = usePlayer.getState()
+      player.setSource(target.source)
+      void player.run()
+      return
+    }
+
+    load(target?.kind === 'problem' ? target.slug : PROBLEM_SLUGS[0])
   }, [load])
+
+  // Keep the address bar shareable: the slug while a problem is untouched, the
+  // compressed source once it has been edited or run.
+  useEffect(() => {
+    if (status === 'running' || status === 'loading') return
+    if (source === '') return
+
+    const id = setTimeout(() => {
+      writeHash(dirty || origin === 'live' ? encodeSource(source) : encodeProblem(fixture ?? ''))
+    }, 400)
+    return () => clearTimeout(id)
+  }, [source, dirty, origin, fixture, status])
 
   useEffect(() => {
     if (!playing) return
@@ -115,6 +144,13 @@ export default function Page() {
             disabled={fixtures.length === 0 || running}
             aria-label="Trace"
           >
+            {/* Shared code belongs to no fixture; say so rather than letting
+                the select imply the first one is loaded. */}
+            {fixture === null && (
+              <option value="" disabled>
+                custom code
+              </option>
+            )}
             {fixtures.map((name) => (
               <option key={name} value={name}>
                 {name}.py
@@ -144,6 +180,12 @@ export default function Page() {
       </header>
 
       <main className="body">
+        <Sidebar
+          current={dirty || origin === 'live' ? null : fixture}
+          disabled={running}
+          onPick={(slug) => load(slug)}
+        />
+
         <section className="editor">
           <div className="pane-head">
             <span className="pane-label">Source</span>
