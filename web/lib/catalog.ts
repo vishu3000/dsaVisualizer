@@ -1,5 +1,6 @@
-// GENERATED DATA — edited by the app's New-fixture modal.
-// Plain data on purpose: saving a fixture rewrites this whole array.
+// The sample catalogue: which recorded fixtures the Samples modal lists, and
+// under which heading. Add an entry here after running `python -m tracer`, and
+// keep the slug matching fixtures/<slug>.json and examples/<slug>.py.
 
 import type { ProblemGroup } from './problems.ts'
 

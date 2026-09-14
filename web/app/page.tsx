@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CanvasPanel } from '@/components/CanvasPanel.tsx'
 import { CodePane } from '@/components/CodePane.tsx'
+import { Header } from '@/components/Header.tsx'
 import { InspectorPanel } from '@/components/InspectorPanel.tsx'
-import { NewFixtureModal } from '@/components/NewFixtureModal.tsx'
-import { Sidebar } from '@/components/Sidebar.tsx'
+import { SamplesModal } from '@/components/SamplesModal.tsx'
 import { Splitter } from '@/components/Splitter.tsx'
 import { TransportBar } from '@/components/TransportBar.tsx'
-import { PROBLEM_SLUGS } from '@/lib/problems.ts'
+import { PROBLEM_SLUGS, findProblem } from '@/lib/problems.ts'
 import { encodeProblem, encodeSource, parseHash, writeHash } from '@/lib/share.ts'
 import { BASE_INTERVAL_MS, usePlayer, usePreviousSnapshot, useSnapshot } from '@/lib/store.ts'
 import { useLayout } from '@/lib/useLayout.ts'
@@ -20,9 +20,9 @@ export default function Page() {
   const rightRef = useRef<HTMLDivElement | null>(null)
   const { layout, update, reset } = useLayout()
   const [available, setAvailable] = useState<string[]>([])
-  const [showNew, setShowNew] = useState(false)
+  const [showSamples, setShowSamples] = useState(false)
 
-  /** Fixtures present on disk, so newly added ones appear without a code edit. */
+  /** Fixtures present on disk, so hand-added ones appear without a code edit. */
   const refreshIndex = useCallback(() => {
     fetch(`fixtures/index.json?t=${Date.now()}`)
       .then((response) => response.json())
@@ -85,32 +85,27 @@ export default function Page() {
   }, [playing, speed])
 
   const lineCount = source === '' ? 0 : source.replace(/\n$/, '').split('\n').length
+  const loaded = dirty || origin === 'live' ? null : fixture
+  const headerLabel = loaded ? (findProblem(loaded)?.title ?? loaded) : 'Scratch'
 
   return (
     <div className="app">
+      <Header
+        label={headerLabel}
+        disabled={running}
+        onSamples={() => {
+          // The list is read from disk, so a fixture added since load shows up.
+          refreshIndex()
+          setShowSamples(true)
+        }}
+        onNew={() => usePlayer.getState().newScratch()}
+      />
+
       <main
         className="body"
         ref={bodyRef}
-        style={{
-          gridTemplateColumns: `${layout.sidebar}px 6px ${layout.editor}px 6px minmax(0, 1fr)`,
-        }}
+        style={{ gridTemplateColumns: `${layout.editor}px 6px minmax(0, 1fr)` }}
       >
-        <Sidebar
-          current={dirty || origin === 'live' ? null : fixture}
-          disabled={running}
-          onPick={(slug) => load(slug)}
-          custom={available.filter((slug) => !PROBLEM_SLUGS.includes(slug))}
-          onNew={() => setShowNew(true)}
-        />
-
-        <Splitter
-          orientation="vertical"
-          label="Resize problems panel"
-          containerRef={bodyRef}
-          onDrag={(x) => update({ sidebar: x })}
-          onNudge={(delta) => update({ sidebar: layout.sidebar + delta })}
-        />
-
         <section className="editor">
           <div className="pane-head">
             <span className="pane-label">Source</span>
@@ -130,7 +125,7 @@ export default function Page() {
           orientation="vertical"
           label="Resize source panel"
           containerRef={bodyRef}
-          onDrag={(x) => update({ editor: x - layout.sidebar - 6 })}
+          onDrag={(x) => update({ editor: x })}
           onNudge={(delta) => update({ editor: layout.editor + delta })}
         />
 
@@ -178,17 +173,15 @@ export default function Page() {
 
       <TransportBar onResetLayout={reset} />
 
-      {showNew && (
-        <NewFixtureModal
-          source={source}
-          taken={available}
-          onClose={() => setShowNew(false)}
-          onSaved={() => {
-            setShowNew(false)
-            // The file is on disk now, but public/ is only refreshed by the
-            // sync script, so re-read the index rather than assume it is there.
-            refreshIndex()
+      {showSamples && (
+        <SamplesModal
+          current={loaded}
+          custom={available.filter((slug) => !PROBLEM_SLUGS.includes(slug))}
+          onPick={(slug) => {
+            load(slug)
+            setShowSamples(false)
           }}
+          onClose={() => setShowSamples(false)}
         />
       )}
     </div>

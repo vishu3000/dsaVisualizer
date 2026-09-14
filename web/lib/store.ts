@@ -16,6 +16,24 @@ export const SPEEDS = [0.25, 0.5, 1, 2, 4] as const
 /** Milliseconds between steps at 1x. */
 export const BASE_INTERVAL_MS = 260
 
+/**
+ * What "New" drops into the editor. Deliberately runnable: an empty buffer
+ * would leave Run disabled and the canvas blank, which reads as broken rather
+ * than as a starting point. Nothing about it is written to disk.
+ */
+export const SCRATCH_SOURCE = `# Scratch buffer — nothing here is saved.
+# Edit freely and press Run (Cmd/Ctrl + Enter) to trace it.
+
+def solve(nums):
+    total = 0
+    for n in nums:
+        total += n
+    return total
+
+
+solve([4, 1, 7, 3])
+`
+
 type PlayerState = {
   trace: Trace | null
   currentStep: number
@@ -37,6 +55,7 @@ type PlayerState = {
   dirty: boolean
 
   load: (fixture: string) => Promise<void>
+  newScratch: () => void
   setSource: (source: string) => void
   run: () => Promise<void>
   seek: (step: number) => void
@@ -98,6 +117,27 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       })
     }
   },
+
+  /**
+   * Start from a blank buffer. The old trace is dropped rather than left on
+   * screen, so the canvas never shows a visualisation of code the editor no
+   * longer holds.
+   */
+  newScratch: () =>
+    set({
+      source: SCRATCH_SOURCE,
+      trace: null,
+      currentStep: 0,
+      playing: false,
+      status: 'empty',
+      fixture: null,
+      origin: 'live',
+      dirty: true,
+      error: null,
+      errorDetail: null,
+      progress: null,
+      elapsedMs: null,
+    }),
 
   setSource: (source) => set({ source, dirty: true }),
 

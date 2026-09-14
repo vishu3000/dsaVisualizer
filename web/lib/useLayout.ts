@@ -1,19 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 
 export type PaneLayout = {
-  /** Sidebar width in px. */
-  sidebar: number
   /** Editor width in px. */
   editor: number
   /** Share of the right column given to the canvas, 0..1. */
   canvas: number
 }
 
-const DEFAULTS: PaneLayout = { sidebar: 208, editor: 520, canvas: 0.62 }
+const DEFAULTS: PaneLayout = { editor: 520, canvas: 0.62 }
 const STORAGE_KEY = 'dsa-visualizer:layout'
 
 export const LIMITS = {
-  sidebar: [150, 380],
   editor: [280, 900],
   canvas: [0.18, 0.86],
 } as const
@@ -24,7 +21,6 @@ function clamp(value: number, [min, max]: readonly [number, number]): number {
 
 function sanitize(input: Partial<PaneLayout>): PaneLayout {
   return {
-    sidebar: clamp(Number(input.sidebar) || DEFAULTS.sidebar, LIMITS.sidebar),
     editor: clamp(Number(input.editor) || DEFAULTS.editor, LIMITS.editor),
     canvas: clamp(Number(input.canvas) || DEFAULTS.canvas, LIMITS.canvas),
   }
