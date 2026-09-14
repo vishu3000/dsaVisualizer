@@ -187,3 +187,17 @@ export function useSnapshot(): Snapshot | null {
   // previous trace on screen rather than blanking the panels.
   return useMemo(() => (trace ? reconstruct(trace, currentStep) : null), [trace, currentStep])
 }
+
+/**
+ * The snapshot one step back, or null at step 0. "Just mutated" is a change
+ * between two steps, so it cannot be read off the current snapshot alone.
+ */
+export function usePreviousSnapshot(): Snapshot | null {
+  const trace = usePlayer((state) => state.trace)
+  const currentStep = usePlayer((state) => state.currentStep)
+
+  return useMemo(
+    () => (trace && currentStep > 0 ? reconstruct(trace, currentStep - 1) : null),
+    [trace, currentStep],
+  )
+}

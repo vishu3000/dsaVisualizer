@@ -536,6 +536,244 @@ button:disabled {
   border: 1px solid var(--cell-bd);
 }
 
+.swatch-default {
+  background: var(--cell-bg);
+  border-color: var(--cell-bd);
+}
+
+.swatch-active {
+  background: var(--cell-active-bg);
+  border-color: var(--exec);
+}
+
+.swatch-window {
+  background: var(--cell-window-bg);
+  border-color: rgb(56 189 248 / 34%);
+}
+
+.swatch-mutated {
+  background: var(--cell-mutated-bg);
+  border-color: #fbbf24;
+}
+
+.swatch-dim {
+  background: var(--cell-dim-bg);
+  border-color: var(--cell-dim-bd);
+}
+
+.legend-hints {
+  margin-left: auto;
+  font-family: var(--font-mono), monospace;
+  color: var(--text-gutter);
+}
+
+/* ── List renderer ─────────────────────────────────────────────────────── */
+
+.viz-block {
+  margin-bottom: 22px;
+}
+
+.viz-title {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.viz-name {
+  font-family: var(--font-mono), monospace;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-hi);
+}
+
+.viz-type {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--pointer);
+  background: rgb(56 189 248 / 8%);
+  border: 1px solid rgb(56 189 248 / 22%);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+.viz-alias {
+  font-size: 11px;
+  color: var(--text-gutter);
+}
+
+.list-render {
+  display: flex;
+  flex-direction: column;
+}
+
+.list-row {
+  display: grid;
+  gap: 8px;
+}
+
+.list-cells {
+  align-items: stretch;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  max-height: 58px;
+  min-width: 0;
+  padding: 2px;
+  border-radius: 6px;
+  font-family: var(--font-mono), monospace;
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--cell-bg);
+  border: 1px solid var(--cell-bd);
+  color: var(--text-code);
+}
+
+.cell-active {
+  background: var(--cell-active-bg);
+  border-color: var(--exec);
+  color: var(--cell-active-ink);
+  font-weight: 600;
+  box-shadow: 0 0 0 3px rgb(244 114 182 / 12%);
+}
+
+.cell-in-window {
+  background: var(--cell-window-bg);
+  border-color: rgb(56 189 248 / 34%);
+  color: #cfe9fb;
+}
+
+.cell-just-mutated {
+  background: var(--cell-mutated-bg);
+  border-color: #fbbf24;
+  color: var(--cell-mutated-ink);
+  font-weight: 600;
+}
+
+.cell-dim {
+  background: var(--cell-dim-bg);
+  border-color: var(--cell-dim-bd);
+  color: var(--cell-dim-ink);
+}
+
+.list-indexes {
+  padding-top: 7px;
+}
+
+.index-mark {
+  text-align: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: var(--text-gutter);
+}
+
+.index-lit {
+  color: #7a828f;
+}
+
+.list-pointers {
+  padding-top: 10px;
+  align-items: start;
+}
+
+.pointer-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pointer-arrow {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--pointer);
+}
+
+.pointer-arrow.pointer-hot {
+  color: var(--exec);
+}
+
+.pointer-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--pointer);
+  background: rgb(56 189 248 / 10%);
+  border: 1px solid rgb(56 189 248 / 30%);
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.pointer-label.pointer-hot {
+  font-weight: 600;
+  color: var(--exec-text);
+  background: rgb(244 114 182 / 14%);
+  border-color: rgb(244 114 182 / 40%);
+}
+
+.span-bracket {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+  min-width: 0;
+}
+
+.span-label {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--window);
+}
+
+.span-line {
+  display: block;
+  width: 100%;
+  height: 1px;
+  background: rgb(56 189 248 / 40%);
+}
+
+.list-empty {
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  color: var(--text-disabled);
+}
+
+.viz-rest {
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.viz-rest summary {
+  cursor: pointer;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.viz-rest summary:hover {
+  color: var(--text);
+}
+
+.viz-rest .json-dump {
+  margin-top: 8px;
+}
+
 /* Inspector */
 
 .inspector {

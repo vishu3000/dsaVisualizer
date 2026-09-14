@@ -6,7 +6,7 @@ import { CanvasPanel } from '@/components/CanvasPanel.tsx'
 import { CodePane } from '@/components/CodePane.tsx'
 import { InspectorPanel } from '@/components/InspectorPanel.tsx'
 import { TransportBar } from '@/components/TransportBar.tsx'
-import { BASE_INTERVAL_MS, usePlayer, useSnapshot } from '@/lib/store.ts'
+import { BASE_INTERVAL_MS, usePlayer, usePreviousSnapshot, useSnapshot } from '@/lib/store.ts'
 
 function StatusPill() {
   const status = usePlayer((state) => state.status)
@@ -77,6 +77,7 @@ export default function Page() {
   const speed = usePlayer((state) => state.speed)
 
   const snapshot = useSnapshot()
+  const previous = usePreviousSnapshot()
   const running = status === 'running'
 
   useEffect(() => {
@@ -160,6 +161,7 @@ export default function Page() {
         <div className="right-column">
           <CanvasPanel
             snapshot={snapshot}
+            previous={previous}
             trace={trace}
             progress={progress}
             running={running}
