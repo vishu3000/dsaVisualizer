@@ -12,13 +12,23 @@ function StatusPill() {
   const status = usePlayer((state) => state.status)
   const error = usePlayer((state) => state.error)
   const trace = usePlayer((state) => state.trace)
+  const origin = usePlayer((state) => state.origin)
+  const progress = usePlayer((state) => state.progress)
 
+  if (status === 'running') {
+    return (
+      <span className="pill pill-ready">
+        <span className="pill-dot pill-dot-pulse" />
+        {progress?.phase === 'running' ? 'tracing' : 'starting python'}
+      </span>
+    )
+  }
   if (status === 'loading') return <span className="pill">loading</span>
   if (status === 'error') {
     return (
       <span className="pill pill-error">
         <span className="pill-dot" />
-        load failed · {error}
+        {error}
       </span>
     )
   }
@@ -43,7 +53,7 @@ function StatusPill() {
   return (
     <span className="pill pill-ready">
       <span className="pill-dot" />
-      ready
+      {origin === 'live' ? 'traced' : 'fixture'}
     </span>
   )
 }
@@ -52,13 +62,22 @@ export default function Page() {
   const [fixtures, setFixtures] = useState<string[]>([])
 
   const load = usePlayer((state) => state.load)
+  const run = usePlayer((state) => state.run)
+  const setSource = usePlayer((state) => state.setSource)
   const fixture = usePlayer((state) => state.fixture)
   const source = usePlayer((state) => state.source)
   const trace = usePlayer((state) => state.trace)
+  const status = usePlayer((state) => state.status)
+  const error = usePlayer((state) => state.error)
+  const errorDetail = usePlayer((state) => state.errorDetail)
+  const progress = usePlayer((state) => state.progress)
+  const elapsedMs = usePlayer((state) => state.elapsedMs)
+  const dirty = usePlayer((state) => state.dirty)
   const playing = usePlayer((state) => state.playing)
   const speed = usePlayer((state) => state.speed)
 
   const snapshot = useSnapshot()
+  const running = status === 'running'
 
   useEffect(() => {
     fetch('fixtures/index.json')
@@ -91,7 +110,7 @@ export default function Page() {
             className="fixture-select"
             value={fixture ?? ''}
             onChange={(event) => load(event.target.value)}
-            disabled={fixtures.length === 0}
+            disabled={fixtures.length === 0 || running}
             aria-label="Trace"
           >
             {fixtures.map((name) => (
@@ -100,16 +119,25 @@ export default function Page() {
               </option>
             ))}
           </select>
+          {dirty && <span className="dirty-mark">edited</span>}
         </div>
 
         <div className="titlebar-right">
-          {trace && (
+          {trace && !running && (
             <span className="step-meta">
-              {trace.meta.steps.toLocaleString()} steps · {trace.deltas.length.toLocaleString()}{' '}
-              deltas
+              {trace.meta.steps.toLocaleString()} steps
+              {elapsedMs !== null && ` · ${(elapsedMs / 1000).toFixed(1)}s`}
             </span>
           )}
           <StatusPill />
+          <button
+            type="button"
+            className="run-button"
+            onClick={() => run()}
+            disabled={running || source.trim() === ''}
+          >
+            {running ? 'Running…' : 'Run'} <span className="run-chord">⌘↵</span>
+          </button>
         </div>
       </header>
 
@@ -120,18 +148,24 @@ export default function Page() {
             <span className="pane-meta">python · {lineCount} lines</span>
           </div>
           <div className="editor-body">
-            {source ? (
-              <CodePane source={source} line={snapshot?.line ?? 0} />
-            ) : (
-              <div className="empty-state">
-                <span className="empty-title">No source</span>
-              </div>
-            )}
+            <CodePane
+              source={source}
+              line={snapshot?.line ?? 0}
+              onChange={setSource}
+              onRun={() => usePlayer.getState().run()}
+            />
           </div>
         </section>
 
         <div className="right-column">
-          <CanvasPanel snapshot={snapshot} trace={trace} />
+          <CanvasPanel
+            snapshot={snapshot}
+            trace={trace}
+            progress={progress}
+            running={running}
+            error={status === 'error' ? error : null}
+            errorDetail={status === 'error' ? errorDetail : null}
+          />
           <InspectorPanel snapshot={snapshot} />
         </div>
       </main>

@@ -34,9 +34,7 @@ const THEME: editor.IStandaloneThemeData = {
     'editorGutter.background': '#0f1116',
     'editor.lineHighlightBackground': '#00000000',
     'editor.lineHighlightBorder': '#00000000',
-    // The executing line is marked by its own decoration and gutter arrow, so
-    // the caret (moved programmatically to that line) stays invisible.
-    'editorCursor.foreground': '#00000000',
+    'editorCursor.foreground': '#f472b6', // --exec
     'editor.selectionBackground': '#262935', // --border-strong
     'editorIndentGuide.background1': '#1c1e26', // --border
     'editorIndentGuide.activeBackground1': '#262935',
@@ -51,9 +49,14 @@ const THEME: editor.IStandaloneThemeData = {
 type CodePaneProps = {
   source: string
   line: number
+  onChange: (source: string) => void
+  onRun: () => void
 }
 
-export function CodePane({ source, line }: CodePaneProps) {
+export function CodePane({ source, line, onChange, onRun }: CodePaneProps) {
+  const runRef = useRef(onRun)
+  runRef.current = onRun
+
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
   const decorationsRef = useRef<editor.IEditorDecorationsCollection | null>(null)
@@ -81,9 +84,8 @@ export function CodePane({ source, line }: CodePaneProps) {
         },
       },
     ])
-    // Moving the cursor too makes Monaco's active line-number colour follow the
-    // executing line instead of sitting wherever the caret happens to be.
-    instance.setPosition({ lineNumber: line, column: 1 })
+    // The caret is the user's, so it is left alone: the executing line is
+    // marked by its own background, gutter bar and arrow.
     instance.revealLineInCenterIfOutsideViewport(line)
   }, [line, source])
 
@@ -93,16 +95,17 @@ export function CodePane({ source, line }: CodePaneProps) {
       language="python"
       theme="dsa-dark"
       value={source}
-      loading={<div className="pane-placeholder">loading editor…</div>}
+      onChange={(value) => onChange(value ?? '')}
+      loading={<div className="empty-state">loading editor…</div>}
       beforeMount={(monaco) => monaco.editor.defineTheme('dsa-dark', THEME)}
       onMount={(instance, monaco) => {
         editorRef.current = instance
         monacoRef.current = monaco
         decorationsRef.current = instance.createDecorationsCollection()
+        instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current())
       }}
       options={{
-        readOnly: true,
-        domReadOnly: true,
+        readOnly: false,
         fontSize: 13,
         fontFamily: 'var(--font-mono), ui-monospace, Menlo, monospace',
         lineHeight: 24,
@@ -111,7 +114,6 @@ export function CodePane({ source, line }: CodePaneProps) {
         renderLineHighlight: 'none',
         occurrencesHighlight: 'off',
         selectionHighlight: false,
-        cursorBlinking: 'solid',
         smoothScrolling: true,
         padding: { top: 10, bottom: 10 },
         lineNumbersMinChars: 3,

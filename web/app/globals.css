@@ -260,6 +260,152 @@ button:disabled {
   color: var(--text-meta);
 }
 
+.dirty-mark {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--cell-mutated-ink);
+  background: var(--cell-mutated-bg);
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+
+.pill-dot-pulse {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ── Run ───────────────────────────────────────────────────────────────── */
+
+.run-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--bg-app);
+  background: var(--exec);
+  border: 1px solid var(--exec);
+  border-radius: 5px;
+  padding: 6px 13px;
+}
+
+.run-button:hover:not(:disabled) {
+  background: var(--exec-text);
+  border-color: var(--exec-text);
+}
+
+.run-button:disabled {
+  color: var(--text-disabled);
+  background: var(--control-off-bg);
+  border-color: var(--control-off-bd);
+}
+
+.run-chord {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.run-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 420px;
+  margin: 40px auto;
+}
+
+.run-progress-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.run-progress-title {
+  font-size: 13px;
+  color: var(--text-hi);
+}
+
+.run-progress-note {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.run-progress-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.run-progress-fill {
+  display: block;
+  width: 34%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--exec);
+  animation: slide 1.3s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(390%);
+  }
+}
+
+.run-progress-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.run-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  color: var(--text-disabled);
+}
+
+.run-step-dot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--control-off-bd);
+}
+
+.run-step-done {
+  color: var(--text-dim);
+}
+
+.run-step-done .run-step-dot {
+  background: var(--visited);
+}
+
+.run-step-active {
+  color: var(--exec-text);
+}
+
+.run-step-active .run-step-dot {
+  background: var(--exec);
+  box-shadow: 0 0 0 3px rgb(244 114 182 / 18%);
+}
+
 /* ── Body split ────────────────────────────────────────────────────────── */
 
 .body {

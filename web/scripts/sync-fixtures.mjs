@@ -37,4 +37,24 @@ if (!existsSync(monacoOut)) {
   console.log('sync-fixtures: copied monaco -> public/monaco/vs')
 }
 
+// Pyodide is served from public/ for the same reason as Monaco: a static export
+// with no backend should not depend on a CDN being reachable. Only the core
+// runtime is copied — none of the scientific packages.
+const PYODIDE_FILES = [
+  'pyodide.mjs',
+  'pyodide.asm.mjs',
+  'pyodide.asm.wasm',
+  'python_stdlib.zip',
+  'pyodide-lock.json',
+]
+
+const pyodideOut = join(publicDir, 'pyodide')
+if (!existsSync(join(pyodideOut, 'pyodide.asm.wasm'))) {
+  mkdirSync(pyodideOut, { recursive: true })
+  for (const file of PYODIDE_FILES) {
+    copyFileSync(join(here, '..', 'node_modules', 'pyodide', file), join(pyodideOut, file))
+  }
+  console.log('sync-fixtures: copied pyodide core -> public/pyodide')
+}
+
 console.log(`sync-fixtures: ${names.length} traces + sources -> public/`)

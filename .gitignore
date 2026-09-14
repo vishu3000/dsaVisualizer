@@ -11,9 +11,11 @@ web/out/
 web/next-env.d.ts
 *.tsbuildinfo
 
-# Generated into public/ by web/scripts/sync-fixtures.mjs
+# Generated into public/ by web/scripts/*.mjs
 web/public/fixtures/
 web/public/examples/
 web/public/monaco/
+web/public/pyodide/
+web/public/workers/
 
 .DS_Store

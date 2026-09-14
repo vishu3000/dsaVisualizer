@@ -1,10 +1,15 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
 
+import type { ProgressResponse } from './pyodide/messages.ts'
+import { RunFailure, runSource } from './runner.ts'
 import { reconstruct } from './trace/reconstruct.ts'
 import type { Snapshot, Trace } from './trace/types.ts'
 
-export type Status = 'empty' | 'loading' | 'ready' | 'error'
+export type Status = 'empty' | 'loading' | 'running' | 'ready' | 'error'
+
+/** Where the current trace came from. */
+export type TraceOrigin = 'fixture' | 'live'
 
 export const SPEEDS = [0.25, 0.5, 1, 2, 4] as const
 
@@ -22,8 +27,18 @@ type PlayerState = {
   source: string
   fixture: string | null
   error: string | null
+  errorDetail: string | null
+  origin: TraceOrigin
+  /** Set while the worker is booting or tracing; null otherwise. */
+  progress: ProgressResponse | null
+  /** Tracing time of the last live run, in milliseconds. */
+  elapsedMs: number | null
+  /** True once the editor has been changed since the loaded source. */
+  dirty: boolean
 
   load: (fixture: string) => Promise<void>
+  setSource: (source: string) => void
+  run: () => Promise<void>
   seek: (step: number) => void
   stepBy: (delta: number) => void
   setPlaying: (playing: boolean) => void
@@ -40,9 +55,21 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   source: '',
   fixture: null,
   error: null,
+  errorDetail: null,
+  origin: 'fixture',
+  progress: null,
+  elapsedMs: null,
+  dirty: false,
 
   load: async (fixture) => {
-    set({ status: 'loading', playing: false, fixture, error: null })
+    set({
+      status: 'loading',
+      playing: false,
+      fixture,
+      error: null,
+      errorDetail: null,
+      progress: null,
+    })
     try {
       const [traceResponse, sourceResponse] = await Promise.all([
         fetch(`fixtures/${fixture}.json`),
@@ -53,13 +80,62 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
       const trace: Trace = await traceResponse.json()
       const source = await sourceResponse.text()
-      set({ trace, source, currentStep: 0, status: 'ready' })
+      set({
+        trace,
+        source,
+        currentStep: 0,
+        status: 'ready',
+        origin: 'fixture',
+        dirty: false,
+        elapsedMs: null,
+      })
     } catch (cause) {
       set({
         status: 'error',
         trace: null,
         source: '',
         error: cause instanceof Error ? cause.message : String(cause),
+      })
+    }
+  },
+
+  setSource: (source) => set({ source, dirty: true }),
+
+  run: async () => {
+    const { source, status } = get()
+    if (status === 'running' || source.trim() === '') return
+
+    set({
+      status: 'running',
+      playing: false,
+      error: null,
+      errorDetail: null,
+      progress: null,
+    })
+
+    try {
+      const started = Date.now()
+      const trace = await runSource(source, {
+        onProgress: (progress) => set({ progress }),
+      })
+      set({
+        trace,
+        currentStep: 0,
+        status: 'ready',
+        origin: 'live',
+        dirty: false,
+        progress: null,
+        elapsedMs: Date.now() - started,
+      })
+    } catch (cause) {
+      const failure = cause instanceof RunFailure ? cause : null
+      set({
+        status: 'error',
+        progress: null,
+        // The previous trace stays loaded: a failed run should not wipe what
+        // the user was looking at.
+        error: failure?.message ?? (cause instanceof Error ? cause.message : String(cause)),
+        errorDetail: failure?.detail ?? null,
       })
     }
   },
@@ -106,10 +182,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 export function useSnapshot(): Snapshot | null {
   const trace = usePlayer((state) => state.trace)
   const currentStep = usePlayer((state) => state.currentStep)
-  const status = usePlayer((state) => state.status)
 
-  return useMemo(
-    () => (trace && status === 'ready' ? reconstruct(trace, currentStep) : null),
-    [trace, currentStep, status],
-  )
+  // Derived from the trace alone, not from status: a failed run leaves the
+  // previous trace on screen rather than blanking the panels.
+  return useMemo(() => (trace ? reconstruct(trace, currentStep) : null), [trace, currentStep])
 }
