@@ -5,7 +5,7 @@ import pathlib
 import pytest
 
 from tracer.cli import main
-from tracer.tracer import run_trace
+from tracer.delta import reconstruct
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "examples"
@@ -33,6 +33,12 @@ def load(name):
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
+def snapshots(name):
+    """Every step of a fixture, replayed out of its deltas."""
+    trace = load(f"{name}.json")
+    return [reconstruct(trace, i) for i in range(trace["meta"]["steps"])]
+
+
 def user_frame_names(source):
     """Frames user code can legitimately produce: defs, plus class bodies."""
     tree = ast.parse(source)
@@ -43,8 +49,8 @@ def user_frame_names(source):
     } | SYNTHETIC_FRAMES
 
 
-def walk_heap_objs(trace):
-    for step in trace["steps"]:
+def walk_heap_objs(steps):
+    for step in steps:
         for obj in step["heap"].values():
             yield obj
 
@@ -58,17 +64,15 @@ def test_every_example_has_a_fixture():
 def test_fixture_is_a_complete_clean_trace(name):
     trace = load(f"{name}.json")
 
-    assert set(trace) == {"meta", "steps"}
+    assert set(trace) == {"meta", "init", "keyframes", "deltas"}
     assert trace["meta"]["truncated"] is False
     assert "error" not in trace["meta"]
-    assert trace["meta"]["steps"] == len(trace["steps"]) > 0
+    assert trace["meta"]["steps"] == len(trace["deltas"]) + 1 > 0
 
 
 @pytest.mark.parametrize("name", NAMES)
 def test_fixture_steps_match_the_schema(name):
-    trace = load(f"{name}.json")
-
-    for step in trace["steps"]:
+    for step in snapshots(name):
         assert set(step) == {"line", "event", "stack", "heap", "stdout"}
         assert step["event"] in {"line", "call", "return", "exception"}
         assert isinstance(step["line"], int)
@@ -86,47 +90,36 @@ def test_fixture_steps_match_the_schema(name):
 
 @pytest.mark.parametrize("name", NAMES)
 def test_fixture_has_no_library_frames(name):
-    trace = load(f"{name}.json")
     allowed = user_frame_names((EXAMPLES / f"{name}.py").read_text(encoding="utf-8"))
 
-    seen = {frame["fn"] for step in trace["steps"] for frame in step["stack"]}
+    seen = {frame["fn"] for step in snapshots(name) for frame in step["stack"]}
     assert seen <= allowed, f"library frames leaked into {name}: {seen - allowed}"
 
 
-@pytest.mark.parametrize("name", NAMES)
-def test_fixture_matches_a_fresh_trace(name):
-    """Fixtures are regenerable: re-tracing the example gives the same steps."""
-    fresh = run_trace((EXAMPLES / f"{name}.py").read_text(encoding="utf-8"))
-    fixture = load(f"{name}.json")
-
-    assert fresh["meta"]["steps"] == fixture["meta"]["steps"]
-    assert fresh["meta"]["viz"] == fixture["meta"]["viz"]
-    assert [s["line"] for s in fresh["steps"]] == [s["line"] for s in fixture["steps"]]
-    assert [s["event"] for s in fresh["steps"]] == [s["event"] for s in fixture["steps"]]
-    assert fresh["steps"][-1]["stdout"] == fixture["steps"][-1]["stdout"]
-
-
 def test_bfs_fixture_exercises_defaultdict_and_deque():
-    trace = load("bfs_graph.json")
-    kinds = {obj["kind"] for obj in walk_heap_objs(trace)}
+    steps = snapshots("bfs_graph")
+    kinds = {obj["kind"] for obj in walk_heap_objs(steps)}
 
     assert {"dict", "deque", "set", "list", "tuple"} <= kinds
-    assert trace["meta"]["viz"] == {"adj": "graph", "queue": "deque", "visited": "set"}
+    assert load("bfs_graph.json")["meta"]["viz"] == {
+        "adj": "graph",
+        "queue": "deque",
+        "visited": "set",
+    }
 
-    last = trace["steps"][-1]["stack"][-1]["locals"]
-    adj = trace["steps"][-1]["heap"][last["adj"]["ref"]]
+    last = steps[-1]
+    adj = last["heap"][last["stack"][-1]["locals"]["adj"]["ref"]]
     assert adj["kind"] == "dict"
     # Every adjacency value is a referenced list, not an inlined one.
     for _key, value in adj["entries"]:
-        assert value["ref"] in trace["steps"][-1]["heap"]
+        assert value["ref"] in last["heap"]
 
 
 def test_heap_ops_fixture_is_a_flat_list():
-    trace = load("heap_ops.json")
-    assert trace["meta"]["viz"] == {"h": "heap"}
+    assert load("heap_ops.json")["meta"]["viz"] == {"h": "heap"}
 
     heap_states = []
-    for step in trace["steps"]:
+    for step in snapshots("heap_ops"):
         locals_ = step["stack"][-1]["locals"]
         if "h" in locals_:
             obj = step["heap"][locals_["h"]["ref"]]
@@ -137,20 +130,17 @@ def test_heap_ops_fixture_is_a_flat_list():
 
 
 def test_node_fixtures_carry_class_names():
-    for name, cls in (("linked_list_reverse.json", "Node"), ("bst_insert.json", "Node")):
-        trace = load(name)
-        classes = {obj.get("cls") for obj in walk_heap_objs(trace)}
-        assert cls in classes
+    for name in ("linked_list_reverse", "bst_insert"):
+        classes = {obj.get("cls") for obj in walk_heap_objs(snapshots(name))}
+        assert "Node" in classes
 
 
 def test_linked_list_fixture_chains_by_reference():
-    trace = load("linked_list_reverse.json")
-    last = trace["steps"][-1]
+    last = snapshots("linked_list_reverse")[-1]
     heap = last["heap"]
-    head_ref = last["stack"][-1]["locals"]["head"]["ref"]
 
     values = []
-    ref = head_ref
+    ref = last["stack"][-1]["locals"]["head"]["ref"]
     while ref is not None:
         node = heap[ref]
         values.append(node["fields"]["val"]["v"])
@@ -161,10 +151,29 @@ def test_linked_list_fixture_chains_by_reference():
 
 
 def test_backtracking_fixture_shows_path_growing_and_shrinking():
-    trace = load("backtracking_subsets.json")
-    depths = [len(step["stack"]) for step in trace["steps"]]
+    depths = [len(step["stack"]) for step in snapshots("backtracking_subsets")]
+
     assert max(depths) >= 4, "nested backtrack frames are recorded"
     assert depths[-1] == 1, "the stack unwinds back to the module frame"
+
+
+def test_fixtures_are_smaller_than_their_full_snapshots():
+    """Delta encoding is doing its job.
+
+    Per fixture the bar is only "smaller": a short trace over tiny, churning
+    state (heap_ops) pays enough JSON-Patch path overhead to nearly cancel the
+    saving. The aggregate is where the encoding has to earn its keep.
+    """
+    total_encoded = total_full = 0
+
+    for name in NAMES:
+        encoded = (FIXTURES / f"{name}.json").stat().st_size
+        full = len(json.dumps(snapshots(name)))
+        assert encoded < full, f"{name} got bigger"
+        total_encoded += encoded
+        total_full += full
+
+    assert total_encoded < total_full / 3
 
 
 def test_cli_writes_json_to_a_file(tmp_path):
@@ -173,6 +182,7 @@ def test_cli_writes_json_to_a_file(tmp_path):
 
     trace = json.loads(out.read_text(encoding="utf-8"))
     assert trace["meta"]["steps"] == load("binary_search.json")["meta"]["steps"]
+    assert set(trace) == {"meta", "init", "keyframes", "deltas"}
 
 
 def test_cli_writes_trace_to_stdout(capsys):

@@ -11,6 +11,7 @@ import json
 import pathlib
 import sys
 
+from .delta import encode
 from .tracer import run_trace
 
 
@@ -44,7 +45,7 @@ def main(argv=None):
         print(f"tracer: cannot read {args.source}: {exc}", file=sys.stderr)
         return 2
 
-    trace = run_trace(source)
+    trace = encode(run_trace(source))
     meta = trace["meta"]
 
     try:
@@ -62,7 +63,11 @@ def main(argv=None):
         if args.indent is not None:
             sys.stdout.write("\n")
 
-    print(f"tracer: {path.name} -> {meta['steps']} steps", file=sys.stderr)
+    print(
+        f"tracer: {path.name} -> {meta['steps']} steps, "
+        f"{len(trace['keyframes'])} keyframes, {len(payload) / 1024:.1f} KB",
+        file=sys.stderr,
+    )
     if meta["truncated"]:
         print("tracer: warning: step cap hit, trace is partial", file=sys.stderr)
     if "error" in meta:
