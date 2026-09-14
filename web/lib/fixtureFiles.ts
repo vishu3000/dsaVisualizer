@@ -8,6 +8,7 @@
 // script next runs.
 
 import { withProblem, type Problem, type ProblemGroup } from './problems.ts'
+import { ensureWritable, recallRoot, rememberRoot, type RepoHandle } from './repoHandle.ts'
 import type { Trace } from './trace/types.ts'
 
 export const SLUG_PATTERN = /^[a-z][a-z0-9_]{1,48}$/
@@ -47,20 +48,11 @@ export function catalogSource(groups: ProblemGroup[]): string {
   return `${CATALOG_HEADER}${JSON.stringify(groups, null, 2)}\n`
 }
 
-type FileHandle = {
-  createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }>
-}
-
-type DirectoryHandle = {
-  getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<DirectoryHandle>
-  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileHandle>
-}
-
 export function canWriteToDisk(): boolean {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window
 }
 
-async function writeFile(root: DirectoryHandle, path: string[], body: string) {
+async function writeFile(root: RepoHandle, path: string[], body: string) {
   let dir = root
   for (const segment of path.slice(0, -1)) {
     dir = await dir.getDirectoryHandle(segment, { create: true })
@@ -79,24 +71,35 @@ export type SaveOutcome =
 /**
  * Write the fixture and register it in the catalogue.
  *
- * The user picks the repo root once. Everything below is relative to it, so a
- * wrong folder produces files in the wrong place rather than silent failure —
- * the returned file list says exactly what was written.
+ * The user picks the repo root once and it is remembered. Everything below is
+ * relative to it, so a wrong folder produces files in the wrong place rather
+ * than silent failure — the returned file list says exactly what was written.
  */
+/** The remembered folder when it is still writable, otherwise ask for one. */
+async function resolveRoot(): Promise<RepoHandle | null> {
+  const remembered = await recallRoot()
+  if (remembered && (await ensureWritable(remembered))) return remembered
+
+  const picker = (window as unknown as {
+    showDirectoryPicker(options?: { mode?: string }): Promise<RepoHandle>
+  }).showDirectoryPicker
+
+  try {
+    const picked = await picker({ mode: 'readwrite' })
+    await rememberRoot(picked)
+    return picked
+  } catch {
+    // The user dismissed the picker, or permission was refused.
+    return null
+  }
+}
+
 export async function saveFixture(
   draft: FixtureDraft,
   groups: ProblemGroup[],
 ): Promise<SaveOutcome> {
-  const picker = (window as unknown as {
-    showDirectoryPicker(options?: { mode?: string }): Promise<DirectoryHandle>
-  }).showDirectoryPicker
-
-  let root: DirectoryHandle
-  try {
-    root = await picker({ mode: 'readwrite' })
-  } catch {
-    return { status: 'cancelled' }
-  }
+  const root = await resolveRoot()
+  if (!root) return { status: 'cancelled' }
 
   const problem: Problem = { slug: draft.slug, title: draft.title, blurb: draft.blurb }
   const catalog = catalogSource(withProblem(groups, draft.category, problem))

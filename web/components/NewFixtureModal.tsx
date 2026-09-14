@@ -9,11 +9,11 @@ import {
   type FixtureDraft,
 } from '@/lib/fixtureFiles.ts'
 import { CATEGORY_LABELS, PROBLEM_GROUPS } from '@/lib/problems.ts'
+import { forgetRoot, recallRoot } from '@/lib/repoHandle.ts'
 import { PROGRESS_LABELS } from '@/lib/pyodide/messages.ts'
 import { RunFailure, runSource } from '@/lib/runner.ts'
 
 const NEW_CATEGORY = '__new__'
-const PREVIEW_LINES = 8
 
 type ModalProps = {
   /** Whatever is in the editor right now — the modal never edits it. */
@@ -37,10 +37,15 @@ export function NewFixtureModal({ source, taken, onClose, onSaved }: ModalProps)
   const [newCategory, setNewCategory] = useState('')
   const [phase, setPhase] = useState<Phase>({ stage: 'editing' })
   const [note, setNote] = useState<string | null>(null)
+  const [repo, setRepo] = useState<string | null>(null)
   const slugRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     slugRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    recallRoot().then((handle) => setRepo(handle?.name ?? null))
   }, [])
 
   useEffect(() => {
@@ -51,7 +56,7 @@ export function NewFixtureModal({ source, taken, onClose, onSaved }: ModalProps)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const lines = source === '' ? [] : source.replace(/\n$/, '').split('\n')
+  const lineCount = source.trim() === '' ? 0 : source.replace(/\n$/, '').split('\n').length
   const creatingCategory = category === NEW_CATEGORY
   const resolvedCategory = creatingCategory ? newCategory.trim() : category
 
@@ -224,23 +229,6 @@ export function NewFixtureModal({ source, taken, onClose, onSaved }: ModalProps)
             </label>
           )}
 
-          {/* Read-only on purpose: the editor is where code gets written. */}
-          <div className="field">
-            <span className="field-label">
-              Source · from the editor · {lines.length} line{lines.length === 1 ? '' : 's'}
-            </span>
-            {lines.length === 0 ? (
-              <div className="source-empty">
-                The editor is empty. Close this, write your code, then reopen.
-              </div>
-            ) : (
-              <pre className="source-preview">
-                {lines.slice(0, PREVIEW_LINES).join('\n')}
-                {lines.length > PREVIEW_LINES && `\n… ${lines.length - PREVIEW_LINES} more lines`}
-              </pre>
-            )}
-          </div>
-
           {phase.stage === 'tracing' && (
             <div className="modal-status">
               <span className="pill pill-ready">
@@ -271,9 +259,29 @@ export function NewFixtureModal({ source, taken, onClose, onSaved }: ModalProps)
 
         <div className="modal-foot">
           <span className="modal-foot-note">
-            {canWriteToDisk()
-              ? `Saves the trace, the source and a ${resolvedCategory || '…'} entry. Pick the repository root when asked.`
-              : 'This browser cannot write files. Use Chrome or Edge to save.'}
+            {!canWriteToDisk() ? (
+              'This browser cannot write files. Use Chrome or Edge to save.'
+            ) : (
+              <>
+                Traces {lineCount} line{lineCount === 1 ? '' : 's'} from the editor into{' '}
+                {resolvedCategory || '…'}
+                {repo ? (
+                  <>
+                    {' · saving to '}
+                    <code>{repo}/</code>{' '}
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => forgetRoot().then(() => setRepo(null))}
+                    >
+                      change
+                    </button>
+                  </>
+                ) : (
+                  ' · you will be asked for the repository folder once'
+                )}
+              </>
+            )}
           </span>
 
           <div className="modal-actions">
