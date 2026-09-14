@@ -22,6 +22,8 @@ NAMES = [
     "linked_list_reverse",
     "bst_insert",
     "backtracking_subsets",
+    "stack_ops",
+    "queue_ops",
 ]
 
 

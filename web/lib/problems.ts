@@ -71,6 +71,21 @@ export const PROBLEM_GROUPS: ProblemGroup[] = [
     ],
   },
   {
+    label: 'Stacks & queues',
+    problems: [
+      {
+        slug: 'stack_ops',
+        title: 'Stack: bracket matching',
+        blurb: 'push on open, pop on close, LIFO',
+      },
+      {
+        slug: 'queue_ops',
+        title: 'Queue: job scheduling',
+        blurb: 'append at the tail, serve from the head, FIFO',
+      },
+    ],
+  },
+  {
     label: 'Structures',
     problems: [
       {
