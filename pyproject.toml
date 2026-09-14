@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dsa-tracer"
+version = "0.1.0"
+description = "sys.settrace-based execution tracer for the Python DSA visualizer"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+packages = ["tracer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tracer/tests"]
