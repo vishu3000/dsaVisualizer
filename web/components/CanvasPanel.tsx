@@ -7,6 +7,8 @@ import { GraphRender } from '@/components/render/Graph.tsx'
 import { HeapRender } from '@/components/render/Heap.tsx'
 import { LinkedListRender } from '@/components/render/LinkedList.tsx'
 import { ListRender } from '@/components/render/List.tsx'
+import { QueueRender } from '@/components/render/Queue.tsx'
+import { StackRender } from '@/components/render/Stack.tsx'
 import { SetRender } from '@/components/render/Set.tsx'
 import { TreeRender } from '@/components/render/Tree.tsx'
 import { RunProgress } from '@/components/RunProgress.tsx'
@@ -43,6 +45,8 @@ const KIND_LABEL: Record<RenderPlan['kind'], string> = {
   tree: 'tree',
   linkedlist: 'linked list',
   heap: 'heap',
+  stack: 'stack',
+  queue: 'queue',
 }
 
 function sizeOf(plan: RenderPlan): string {
@@ -190,6 +194,20 @@ export function CanvasPanel({
                     obj={plan.obj as Extract<HeapObj, { kind: 'dict' }>}
                     heap={heap}
                     mutated={mutatedEntries(plan.obj, previous?.heap[plan.heapId])}
+                  />
+                ) : plan.kind === 'stack' ? (
+                  <StackRender
+                    heapId={plan.heapId}
+                    obj={plan.obj as Extract<HeapObj, { items: never[] }>}
+                    heap={heap}
+                    mutated={mutatedIndices(plan.obj, previous?.heap[plan.heapId])}
+                  />
+                ) : plan.kind === 'queue' ? (
+                  <QueueRender
+                    heapId={plan.heapId}
+                    obj={plan.obj as Extract<HeapObj, { items: never[] }>}
+                    heap={heap}
+                    mutated={mutatedIndices(plan.obj, previous?.heap[plan.heapId])}
                   />
                 ) : plan.kind === 'set' ? (
                   <SetRender

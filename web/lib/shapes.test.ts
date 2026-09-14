@@ -242,6 +242,31 @@ describe('registry routing', () => {
     assert.equal(h.kind, 'heap')
   })
 
+  it('routes @viz stack to the stack renderer, not the list one', () => {
+    const { plans } = plansFor('stack_ops', (all) => all[Math.floor(all.length / 3)])
+    const stack = plans.find((plan) => plan.name === 'stack')
+    assert.equal(stack?.kind, 'stack')
+
+    // The input list beside it stays a plain list.
+    const chars = plans.find((plan) => plan.name === 'chars')
+    assert.equal(chars?.kind, 'list')
+  })
+
+  it('draws a deque as a queue without needing a hint', () => {
+    const { plans } = plansFor('queue_ops', (all) => all[Math.floor(all.length / 2)])
+    const queue = plans.find((plan) => plan.name === 'queue')
+    assert.equal(queue?.kind, 'queue')
+
+    const served = plans.find((plan) => plan.name === 'served')
+    assert.equal(served?.kind, 'list')
+  })
+
+  it('draws the BFS deque as a queue too', () => {
+    const { plans } = plansFor('bfs_graph', (all) => all[Math.floor(all.length / 2)])
+    const queue = plans.find((plan) => plan.name === 'queue')
+    assert.equal(queue?.kind, 'queue')
+  })
+
   it('falls back to structure when nothing is hinted', () => {
     const { plans } = plansFor('binary_search', (all) => all[all.length - 1])
     const arr = plans.find((plan) => plan.name === 'arr')

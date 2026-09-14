@@ -1,6 +1,7 @@
 'use client'
 
 import { SPEEDS, usePlayer } from '@/lib/store.ts'
+import { StatusPill } from '@/components/StatusPill.tsx'
 
 // Icon geometry is taken from the design file's transport bar.
 function StepBackIcon() {
@@ -38,7 +39,7 @@ function PauseIcon() {
   )
 }
 
-export function TransportBar() {
+export function TransportBar({ onResetLayout }: { onResetLayout?: () => void }) {
   const trace = usePlayer((state) => state.trace)
   const currentStep = usePlayer((state) => state.currentStep)
   const playing = usePlayer((state) => state.playing)
@@ -47,7 +48,11 @@ export function TransportBar() {
   const seek = usePlayer((state) => state.seek)
   const togglePlaying = usePlayer((state) => state.togglePlaying)
   const setSpeed = usePlayer((state) => state.setSpeed)
+  const run = usePlayer((state) => state.run)
+  const status = usePlayer((state) => state.status)
+  const source = usePlayer((state) => state.source)
 
+  const running = status === 'running'
   const total = trace?.meta.steps ?? 0
   const last = Math.max(0, total - 1)
   const ready = total > 0
@@ -55,6 +60,20 @@ export function TransportBar() {
 
   return (
     <div className={`transport${ready ? '' : ' transport-idle'}`}>
+      <button
+        type="button"
+        className="run-button"
+        onClick={() => run()}
+        disabled={running || source.trim() === ''}
+        title="Run the editor's code (Cmd/Ctrl + Enter)"
+      >
+        {running ? 'Running…' : 'Run'} <span className="run-chord">⌘↵</span>
+      </button>
+
+      <StatusPill />
+
+      <span className="transport-divider" />
+
       <div className="transport-buttons">
         <button
           type="button"
@@ -136,6 +155,17 @@ export function TransportBar() {
           )}
         </span>
       </div>
+
+      {onResetLayout && (
+        <button
+          type="button"
+          className="layout-reset"
+          onClick={onResetLayout}
+          title="Reset panel sizes"
+        >
+          reset layout
+        </button>
+      )}
     </div>
   )
 }

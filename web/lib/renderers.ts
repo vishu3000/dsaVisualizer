@@ -30,6 +30,8 @@ export type RendererKind =
   | 'tree'
   | 'linkedlist'
   | 'heap'
+  | 'stack'
+  | 'queue'
 
 export const VIZ_KINDS: RendererKind[] = [
   'list',
@@ -41,6 +43,8 @@ export const VIZ_KINDS: RendererKind[] = [
   'tree',
   'linkedlist',
   'heap',
+  'stack',
+  'queue',
 ]
 
 export type RenderPlan =
@@ -62,7 +66,7 @@ export type RenderPlan =
       obj: HeapObj
     }
   | {
-      kind: 'list' | 'tuple' | 'deque' | 'dict' | 'set'
+      kind: 'list' | 'tuple' | 'deque' | 'dict' | 'set' | 'stack' | 'queue'
       heapId: string
       name: string | null
       aliases: string[]
@@ -98,13 +102,21 @@ function chooseKind(
     if (hinted === 'heap' && 'items' in obj) return 'heap'
     if (hinted === 'tree' && obj.kind === 'obj') return 'tree'
     if (hinted === 'linkedlist' && obj.kind === 'obj') return 'linkedlist'
+    // A stack and a queue are both lists; only the hint says which.
+    if (hinted === 'stack' && 'items' in obj) return 'stack'
+    if (hinted === 'queue' && 'items' in obj) return 'queue'
+    // `@viz deque` names the type, not a separate drawing: a deque is a queue.
+    if (hinted === 'deque' && 'items' in obj) return 'queue'
     if (hinted === obj.kind) return hinted
   }
 
   switch (obj.kind) {
+    // A deque exists to be pushed and popped at the ends, so it draws as a
+    // queue unless something says otherwise.
+    case 'deque':
+      return 'queue'
     case 'list':
     case 'tuple':
-    case 'deque':
     case 'dict':
     case 'set':
       return obj.kind
@@ -193,7 +205,7 @@ export function planCanvas(snapshot: Snapshot | null, viz: Record<string, string
     const kind = chooseKind(obj, undefined)
     if (!kind || kind === 'tree' || kind === 'linkedlist') continue
     plans.push({
-      kind: kind as 'list' | 'tuple' | 'deque' | 'dict' | 'set',
+      kind: kind as 'list' | 'tuple' | 'deque' | 'dict' | 'set' | 'stack' | 'queue',
       heapId,
       name: null,
       aliases: [],

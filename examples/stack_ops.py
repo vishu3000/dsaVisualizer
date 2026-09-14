@@ -3,7 +3,7 @@
 Brackets are pushed as they open and popped as they close, so the stack is
 empty exactly when every bracket has been matched.
 """
-# @viz list stack
+# @viz stack stack
 # @viz list chars
 
 CLOSERS = {")": "(", "]": "[", "}": "{"}

@@ -1,72 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { CanvasPanel } from '@/components/CanvasPanel.tsx'
 import { CodePane } from '@/components/CodePane.tsx'
 import { InspectorPanel } from '@/components/InspectorPanel.tsx'
 import { Sidebar } from '@/components/Sidebar.tsx'
+import { Splitter } from '@/components/Splitter.tsx'
 import { TransportBar } from '@/components/TransportBar.tsx'
 import { PROBLEM_SLUGS } from '@/lib/problems.ts'
 import { encodeProblem, encodeSource, parseHash, writeHash } from '@/lib/share.ts'
 import { BASE_INTERVAL_MS, usePlayer, usePreviousSnapshot, useSnapshot } from '@/lib/store.ts'
+import { useLayout } from '@/lib/useLayout.ts'
 import { useTransportKeys } from '@/lib/useTransportKeys.ts'
 
-function StatusPill() {
-  const status = usePlayer((state) => state.status)
-  const error = usePlayer((state) => state.error)
-  const trace = usePlayer((state) => state.trace)
-  const origin = usePlayer((state) => state.origin)
-  const progress = usePlayer((state) => state.progress)
-
-  if (status === 'running') {
-    return (
-      <span className="pill pill-ready">
-        <span className="pill-dot pill-dot-pulse" />
-        {progress?.phase === 'running' ? 'tracing' : 'starting python'}
-      </span>
-    )
-  }
-  if (status === 'loading') return <span className="pill">loading</span>
-  if (status === 'error') {
-    return (
-      <span className="pill pill-error">
-        <span className="pill-dot" />
-        {error}
-      </span>
-    )
-  }
-  if (status !== 'ready' || !trace) return <span className="pill">idle</span>
-
-  if (trace.meta.error) {
-    return (
-      <span className="pill pill-error">
-        <span className="pill-dot" />
-        halted · {trace.meta.error.type}
-      </span>
-    )
-  }
-  if (trace.meta.truncated) {
-    return (
-      <span className="pill pill-warn">
-        <span className="pill-dot" />
-        truncated
-      </span>
-    )
-  }
-  return (
-    <span className="pill pill-ready">
-      <span className="pill-dot" />
-      {origin === 'live' ? 'traced' : 'fixture'}
-    </span>
-  )
-}
-
 export default function Page() {
-  const [fixtures, setFixtures] = useState<string[]>([])
+  const bodyRef = useRef<HTMLElement | null>(null)
+  const rightRef = useRef<HTMLDivElement | null>(null)
+  const { layout, update, reset } = useLayout()
 
   const load = usePlayer((state) => state.load)
-  const run = usePlayer((state) => state.run)
   const setSource = usePlayer((state) => state.setSource)
   const fixture = usePlayer((state) => state.fixture)
   const source = usePlayer((state) => state.source)
@@ -75,7 +28,6 @@ export default function Page() {
   const error = usePlayer((state) => state.error)
   const errorDetail = usePlayer((state) => state.errorDetail)
   const progress = usePlayer((state) => state.progress)
-  const elapsedMs = usePlayer((state) => state.elapsedMs)
   const dirty = usePlayer((state) => state.dirty)
   const origin = usePlayer((state) => state.origin)
   const currentStep = usePlayer((state) => state.currentStep)
@@ -88,14 +40,7 @@ export default function Page() {
 
   useTransportKeys()
 
-  // Boot: a shared link wins over the default problem. Shared source is
-  // re-executed rather than shipped with a trace, so links stay short.
   useEffect(() => {
-    fetch('fixtures/index.json')
-      .then((response) => response.json())
-      .then((names: string[]) => setFixtures(names))
-      .catch(() => setFixtures([]))
-
     const target = parseHash(window.location.hash)
 
     if (target?.kind === 'source') {
@@ -108,8 +53,6 @@ export default function Page() {
     load(target?.kind === 'problem' ? target.slug : PROBLEM_SLUGS[0])
   }, [load])
 
-  // Keep the address bar shareable: the slug while a problem is untouched, the
-  // compressed source once it has been edited or run.
   useEffect(() => {
     if (status === 'running' || status === 'loading') return
     if (source === '') return
@@ -130,60 +73,25 @@ export default function Page() {
 
   return (
     <div className="app">
-      <header className="titlebar">
-        <div className="titlebar-left">
-          <span className="brand">
-            <span className="brand-mark" />
-            trace
-          </span>
-          <span className="titlebar-divider" />
-          <select
-            className="fixture-select"
-            value={fixture ?? ''}
-            onChange={(event) => load(event.target.value)}
-            disabled={fixtures.length === 0 || running}
-            aria-label="Trace"
-          >
-            {/* Shared code belongs to no fixture; say so rather than letting
-                the select imply the first one is loaded. */}
-            {fixture === null && (
-              <option value="" disabled>
-                custom code
-              </option>
-            )}
-            {fixtures.map((name) => (
-              <option key={name} value={name}>
-                {name}.py
-              </option>
-            ))}
-          </select>
-          {dirty && <span className="dirty-mark">edited</span>}
-        </div>
-
-        <div className="titlebar-right">
-          {trace && !running && (
-            <span className="step-meta">
-              {trace.meta.steps.toLocaleString()} steps
-              {elapsedMs !== null && ` · ${(elapsedMs / 1000).toFixed(1)}s`}
-            </span>
-          )}
-          <StatusPill />
-          <button
-            type="button"
-            className="run-button"
-            onClick={() => run()}
-            disabled={running || source.trim() === ''}
-          >
-            {running ? 'Running…' : 'Run'} <span className="run-chord">⌘↵</span>
-          </button>
-        </div>
-      </header>
-
-      <main className="body">
+      <main
+        className="body"
+        ref={bodyRef}
+        style={{
+          gridTemplateColumns: `${layout.sidebar}px 6px ${layout.editor}px 6px minmax(0, 1fr)`,
+        }}
+      >
         <Sidebar
           current={dirty || origin === 'live' ? null : fixture}
           disabled={running}
           onPick={(slug) => load(slug)}
+        />
+
+        <Splitter
+          orientation="vertical"
+          label="Resize problems panel"
+          containerRef={bodyRef}
+          onDrag={(x) => update({ sidebar: x })}
+          onNudge={(delta) => update({ sidebar: layout.sidebar + delta })}
         />
 
         <section className="editor">
@@ -201,7 +109,23 @@ export default function Page() {
           </div>
         </section>
 
-        <div className="right-column">
+        <Splitter
+          orientation="vertical"
+          label="Resize source panel"
+          containerRef={bodyRef}
+          onDrag={(x) => update({ editor: x - layout.sidebar - 6 })}
+          onNudge={(delta) => update({ editor: layout.editor + delta })}
+        />
+
+        <div
+          className="right-column"
+          ref={rightRef}
+          style={{
+            gridTemplateRows: `minmax(0, ${layout.canvas}fr) 6px minmax(0, ${
+              1 - layout.canvas
+            }fr)`,
+          }}
+        >
           <CanvasPanel
             snapshot={snapshot}
             previous={previous}
@@ -211,6 +135,21 @@ export default function Page() {
             error={status === 'error' ? error : null}
             errorDetail={status === 'error' ? errorDetail : null}
           />
+
+          <Splitter
+            orientation="horizontal"
+            label="Resize visualization panel"
+            containerRef={rightRef}
+            onDrag={(y) => {
+              const height = rightRef.current?.getBoundingClientRect().height ?? 1
+              update({ canvas: y / height })
+            }}
+            onNudge={(delta) => {
+              const height = rightRef.current?.getBoundingClientRect().height ?? 1
+              update({ canvas: layout.canvas + delta / height })
+            }}
+          />
+
           <InspectorPanel
             snapshot={snapshot}
             trace={trace}
@@ -220,7 +159,7 @@ export default function Page() {
         </div>
       </main>
 
-      <TransportBar />
+      <TransportBar onResetLayout={reset} />
     </div>
   )
 }
