@@ -238,11 +238,14 @@ button:disabled {
 }
 
 .run-progress {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  width: 100%;
   max-width: 420px;
-  margin: 40px auto;
+  /* The canvas centres it vertically now; only the inline centring is ours. */
+  margin-inline: auto;
 }
 
 .run-progress-head {
@@ -496,6 +499,11 @@ kbd {
   min-height: 0;
   overflow: auto;
   padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  justify-content: center;
+  justify-content: safe center;
 }
 
 .legend {
@@ -568,12 +576,13 @@ kbd {
 /* ── List renderer ─────────────────────────────────────────────────────── */
 
 .viz-block {
-  margin-bottom: 22px;
+  flex: none;
 }
 
 .viz-title {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 9px;
   margin-bottom: 10px;
 }
@@ -603,6 +612,7 @@ kbd {
 .list-render {
   display: flex;
   flex-direction: column;
+  margin-inline: auto;
 }
 
 .list-row {
@@ -747,6 +757,7 @@ kbd {
 }
 
 .list-empty {
+  text-align: center;
   font-family: var(--font-mono), monospace;
   font-size: 11.5px;
   color: var(--text-disabled);
@@ -759,11 +770,13 @@ kbd {
   flex-direction: column;
   gap: 4px;
   max-width: 520px;
+  margin-inline: auto;
 }
 
 .buckets-wrap {
   flex-direction: row;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 6px;
 }
 
@@ -834,7 +847,7 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .shape-svg {
@@ -910,12 +923,17 @@ kbd {
 }
 
 .viz-rest {
+  flex: none;
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
   margin-top: 6px;
   border-top: 1px solid var(--border);
   padding-top: 10px;
 }
 
 .viz-rest summary {
+  text-align: center;
   cursor: pointer;
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -1315,6 +1333,7 @@ kbd {
 }
 
 .empty-state {
+  flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1336,6 +1355,10 @@ kbd {
 }
 
 .error-card {
+  flex: none;
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
   border: 1px solid rgb(248 113 113 / 30%);
   border-left: 2px solid var(--error);
   border-radius: 6px;
@@ -1621,6 +1644,7 @@ kbd {
   gap: 3px;
   width: max-content;
   min-width: 172px;
+  margin-inline: auto;
 }
 
 .stack-row {
@@ -1698,6 +1722,7 @@ kbd {
 .queue-frame {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
 }
