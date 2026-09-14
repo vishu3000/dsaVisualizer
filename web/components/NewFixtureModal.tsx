@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from 'react'
 
 import {
   canWriteToDisk,
-  downloadFiles,
-  saveToDisk,
+  saveFixture,
   validateSlug,
-  type FixtureFiles,
+  type FixtureDraft,
 } from '@/lib/fixtureFiles.ts'
+import { CATEGORY_LABELS, PROBLEM_GROUPS } from '@/lib/problems.ts'
 import { PROGRESS_LABELS } from '@/lib/pyodide/messages.ts'
 import { RunFailure, runSource } from '@/lib/runner.ts'
 import type { Trace } from '@/lib/trace/types.ts'
+
+const NEW_CATEGORY = '__new__'
 
 type ModalProps = {
   /** Prefilled from the editor, so "capture what I have" is one click. */
@@ -25,10 +27,15 @@ type Phase =
   | { stage: 'editing' }
   | { stage: 'tracing'; message: string }
   | { stage: 'traced'; trace: Trace }
+  | { stage: 'saving' }
   | { stage: 'failed'; message: string; detail?: string }
 
 export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: ModalProps) {
   const [slug, setSlug] = useState('')
+  const [title, setTitle] = useState('')
+  const [blurb, setBlurb] = useState('')
+  const [category, setCategory] = useState(CATEGORY_LABELS[0] ?? NEW_CATEGORY)
+  const [newCategory, setNewCategory] = useState('')
   const [source, setSource] = useState(initialSource)
   const [phase, setPhase] = useState<Phase>({ stage: 'editing' })
   const [note, setNote] = useState<string | null>(null)
@@ -46,8 +53,15 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const creatingCategory = category === NEW_CATEGORY
+  const resolvedCategory = creatingCategory ? newCategory.trim() : category
+
   const slugError = slug === '' ? null : validateSlug(slug, taken)
-  const canTrace = slug !== '' && !slugError && source.trim() !== '' && phase.stage !== 'tracing'
+  const categoryError =
+    creatingCategory && newCategory.trim() === '' ? 'Name the new category.' : null
+
+  const ready =
+    slug !== '' && !slugError && !categoryError && source.trim() !== '' && title.trim() !== ''
 
   async function trace() {
     setNote(null)
@@ -67,22 +81,30 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
     }
   }
 
-  async function save(mode: 'disk' | 'download') {
+  async function save() {
     if (phase.stage !== 'traced') return
-    const files: FixtureFiles = { slug, trace: phase.trace, source }
+    const draft: FixtureDraft = {
+      slug,
+      title: title.trim(),
+      blurb: blurb.trim() || 'added from the app',
+      category: resolvedCategory,
+      source,
+      trace: phase.trace,
+    }
 
-    if (mode === 'disk') {
-      const outcome = await saveToDisk(files)
-      if (outcome === 'cancelled') {
-        setNote('Save cancelled.')
-        return
-      }
+    const traced = phase.trace
+    setPhase({ stage: 'saving' })
+    const outcome = await saveFixture(draft, PROBLEM_GROUPS)
+
+    if (outcome.status === 'saved') {
       onSaved(slug)
       return
     }
 
-    downloadFiles(files)
-    onSaved(slug)
+    setPhase({ stage: 'traced', trace: traced })
+    setNote(
+      outcome.status === 'cancelled' ? 'Save cancelled — nothing written.' : outcome.message,
+    )
   }
 
   return (
@@ -102,27 +124,100 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
         </div>
 
         <div className="modal-body">
-          <label className="field">
-            <span className="field-label">Name</span>
-            <input
-              ref={slugRef}
-              className="field-input"
-              value={slug}
-              onChange={(event) => setSlug(event.target.value.trim())}
-              placeholder="merge_sort"
-              spellCheck={false}
-            />
-            <span className="field-note">
-              {slugError ? (
-                <span className="field-error">{slugError}</span>
+          <div className="field-row">
+            <label className="field">
+              <span className="field-label">File name</span>
+              <input
+                ref={slugRef}
+                className="field-input"
+                value={slug}
+                onChange={(event) => setSlug(event.target.value.trim())}
+                placeholder="merge_sort"
+                spellCheck={false}
+              />
+              <span className="field-note">
+                {slugError ? (
+                  <span className="field-error">{slugError}</span>
+                ) : (
+                  <code>fixtures/{slug || '<name>'}.json</code>
+                )}
+              </span>
+            </label>
+
+            <label className="field">
+              <span className="field-label">Title</span>
+              <input
+                className="field-input"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Merge sort"
+              />
+              <span className="field-note">shown in the sidebar</span>
+            </label>
+          </div>
+
+          <div className="field-row">
+            <label className="field">
+              <span className="field-label">Category</span>
+              <select
+                className="field-input"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              >
+                {CATEGORY_LABELS.map((label) => (
+                  <option key={label} value={label}>
+                    {label}
+                  </option>
+                ))}
+                <option value={NEW_CATEGORY}>+ New category…</option>
+              </select>
+              <span className="field-note">
+                {creatingCategory ? 'added beside the existing ones' : 'existing category'}
+              </span>
+            </label>
+
+            <label className="field">
+              <span className="field-label">
+                {creatingCategory ? 'New category name' : 'Description'}
+              </span>
+              {creatingCategory ? (
+                <input
+                  className="field-input"
+                  value={newCategory}
+                  onChange={(event) => setNewCategory(event.target.value)}
+                  placeholder="Sorting"
+                />
               ) : (
-                <>
-                  saves as <code>fixtures/{slug || '<name>'}.json</code> and{' '}
-                  <code>examples/{slug || '<name>'}.py</code>
-                </>
+                <input
+                  className="field-input"
+                  value={blurb}
+                  onChange={(event) => setBlurb(event.target.value)}
+                  placeholder="divide, sort halves, merge back"
+                />
               )}
-            </span>
-          </label>
+              <span className="field-note">
+                {categoryError ? (
+                  <span className="field-error">{categoryError}</span>
+                ) : creatingCategory ? (
+                  'one line, sentence case'
+                ) : (
+                  'one line under the title'
+                )}
+              </span>
+            </label>
+          </div>
+
+          {creatingCategory && (
+            <label className="field">
+              <span className="field-label">Description</span>
+              <input
+                className="field-input"
+                value={blurb}
+                onChange={(event) => setBlurb(event.target.value)}
+                placeholder="divide, sort halves, merge back"
+              />
+            </label>
+          )}
 
           <label className="field field-grow">
             <span className="field-label">Python source</span>
@@ -131,7 +226,7 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
               value={source}
               onChange={(event) => setSource(event.target.value)}
               spellCheck={false}
-              rows={14}
+              rows={12}
             />
             <span className="field-note">
               Add <code># @viz stack items</code> style hints to pick renderers.
@@ -166,14 +261,9 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
                   halted · {phase.trace.meta.error.type}
                 </span>
               )}
-              {Object.keys(phase.trace.meta.viz).length > 0 && (
-                <span className="modal-hints">
-                  @viz{' '}
-                  {Object.entries(phase.trace.meta.viz)
-                    .map(([name, kind]) => `${name} ${kind}`)
-                    .join(' · ')}
-                </span>
-              )}
+              <span className="modal-hints">
+                will be filed under {resolvedCategory || '…'}
+              </span>
             </div>
           )}
 
@@ -183,8 +273,8 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
         <div className="modal-foot">
           <span className="modal-foot-note">
             {canWriteToDisk()
-              ? 'Save to repo writes both files into a folder you pick — choose the repo root.'
-              : 'This browser cannot write to a folder, so the files download instead.'}
+              ? 'Save writes the trace, the source and the catalogue entry. Pick the repository root when asked.'
+              : 'This browser cannot write files. Use Chrome or Edge to save.'}
           </span>
 
           <div className="modal-actions">
@@ -192,27 +282,21 @@ export function NewFixtureModal({ initialSource, taken, onClose, onSaved }: Moda
               Cancel
             </button>
 
-            {phase.stage === 'traced' ? (
-              <>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => save('download')}
-                >
-                  Download
-                </button>
-                {canWriteToDisk() && (
-                  <button type="button" className="run-button" onClick={() => save('disk')}>
-                    Save to repo
-                  </button>
-                )}
-              </>
+            {phase.stage === 'traced' || phase.stage === 'saving' ? (
+              <button
+                type="button"
+                className="run-button"
+                onClick={save}
+                disabled={!canWriteToDisk() || phase.stage === 'saving'}
+              >
+                {phase.stage === 'saving' ? 'Saving…' : 'Save'}
+              </button>
             ) : (
               <button
                 type="button"
                 className="run-button"
                 onClick={trace}
-                disabled={!canTrace}
+                disabled={!ready || phase.stage === 'tracing'}
               >
                 {phase.stage === 'tracing' ? 'Tracing…' : 'Trace it'}
               </button>

@@ -1,18 +1,24 @@
 // Saving a new fixture without a backend.
 //
-// A fixture is two files: the trace at fixtures/<slug>.json and the source at
-// examples/<slug>.py. Where supported, the File System Access API writes both
-// straight into a folder the user picks — no server, no upload. Everywhere else
-// falls back to ordinary downloads.
+// The File System Access API lets the browser write into a folder the user
+// picks, so Save puts the files exactly where the tracer would: the trace in
+// fixtures/, the source in examples/, and the catalogue entry in
+// web/lib/catalog.json beside the other categories. Copies also go into
+// web/public/ so the new fixture is playable straight away, before the sync
+// script next runs.
 
+import { withProblem, type Problem, type ProblemGroup } from './problems.ts'
 import type { Trace } from './trace/types.ts'
 
 export const SLUG_PATTERN = /^[a-z][a-z0-9_]{1,48}$/
 
-export type FixtureFiles = {
+export type FixtureDraft = {
   slug: string
-  trace: Trace
+  title: string
+  blurb: string
+  category: string
   source: string
+  trace: Trace
 }
 
 export function validateSlug(slug: string, taken: string[]): string | null {
@@ -29,30 +35,58 @@ export function traceJson(trace: Trace): string {
   return JSON.stringify(trace)
 }
 
+const CATALOG_HEADER = `// GENERATED DATA — edited by the app's New-fixture modal.
+// Plain data on purpose: saving a fixture rewrites this whole array.
+
+import type { ProblemGroup } from './problems.ts'
+
+export const CATALOG: ProblemGroup[] = `
+
+/** The catalogue is a data-only module, so writing it is serialising an array. */
+export function catalogSource(groups: ProblemGroup[]): string {
+  return `${CATALOG_HEADER}${JSON.stringify(groups, null, 2)}\n`
+}
+
+type FileHandle = {
+  createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }>
+}
+
 type DirectoryHandle = {
   getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<DirectoryHandle>
-  getFileHandle(name: string, options?: { create?: boolean }): Promise<{
-    createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }>
-  }>
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileHandle>
 }
 
 export function canWriteToDisk(): boolean {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window
 }
 
-async function writeInto(dir: DirectoryHandle, folder: string, name: string, body: string) {
-  const sub = await dir.getDirectoryHandle(folder, { create: true })
-  const file = await sub.getFileHandle(name, { create: true })
-  const writable = await file.createWritable()
+async function writeFile(root: DirectoryHandle, path: string[], body: string) {
+  let dir = root
+  for (const segment of path.slice(0, -1)) {
+    dir = await dir.getDirectoryHandle(segment, { create: true })
+  }
+  const handle = await dir.getFileHandle(path[path.length - 1], { create: true })
+  const writable = await handle.createWritable()
   await writable.write(body)
   await writable.close()
 }
 
+export type SaveOutcome =
+  | { status: 'saved'; files: string[] }
+  | { status: 'cancelled' }
+  | { status: 'failed'; message: string }
+
 /**
- * Write both files into a folder the user chooses — point it at the repo root
- * and they land in fixtures/ and examples/ exactly where the tracer puts them.
+ * Write the fixture and register it in the catalogue.
+ *
+ * The user picks the repo root once. Everything below is relative to it, so a
+ * wrong folder produces files in the wrong place rather than silent failure —
+ * the returned file list says exactly what was written.
  */
-export async function saveToDisk(files: FixtureFiles): Promise<'saved' | 'cancelled'> {
+export async function saveFixture(
+  draft: FixtureDraft,
+  groups: ProblemGroup[],
+): Promise<SaveOutcome> {
   const picker = (window as unknown as {
     showDirectoryPicker(options?: { mode?: string }): Promise<DirectoryHandle>
   }).showDirectoryPicker
@@ -61,27 +95,34 @@ export async function saveToDisk(files: FixtureFiles): Promise<'saved' | 'cancel
   try {
     root = await picker({ mode: 'readwrite' })
   } catch {
-    // The user dismissed the picker, or permission was refused.
-    return 'cancelled'
+    return { status: 'cancelled' }
   }
 
-  await writeInto(root, 'fixtures', `${files.slug}.json`, traceJson(files.trace))
-  await writeInto(root, 'examples', `${files.slug}.py`, files.source)
-  return 'saved'
-}
+  const problem: Problem = { slug: draft.slug, title: draft.title, blurb: draft.blurb }
+  const catalog = catalogSource(withProblem(groups, draft.category, problem))
+  const trace = traceJson(draft.trace)
 
-function download(name: string, body: string, type: string) {
-  const url = URL.createObjectURL(new Blob([body], { type }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = name
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
+  const writes: [string[], string][] = [
+    [['fixtures', `${draft.slug}.json`], trace],
+    [['examples', `${draft.slug}.py`], draft.source],
+    [['web', 'lib', 'catalog.ts'], catalog],
+    // Served copies: public/ is generated, but writing it here means the new
+    // fixture plays immediately instead of after the next sync.
+    [['web', 'public', 'fixtures', `${draft.slug}.json`], trace],
+    [['web', 'public', 'examples', `${draft.slug}.py`], draft.source],
+  ]
 
-export function downloadFiles(files: FixtureFiles): void {
-  download(`${files.slug}.json`, traceJson(files.trace), 'application/json')
-  download(`${files.slug}.py`, files.source, 'text/x-python')
+  try {
+    for (const [path, body] of writes) await writeFile(root, path, body)
+  } catch (cause) {
+    return {
+      status: 'failed',
+      message:
+        cause instanceof Error
+          ? `${cause.message} — is that the repository root?`
+          : String(cause),
+    }
+  }
+
+  return { status: 'saved', files: writes.map(([path]) => path.join('/')) }
 }
