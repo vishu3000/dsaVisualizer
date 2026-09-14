@@ -34,7 +34,9 @@ const THEME: editor.IStandaloneThemeData = {
     'editorGutter.background': '#0f1116',
     'editor.lineHighlightBackground': '#00000000',
     'editor.lineHighlightBorder': '#00000000',
-    'editorCursor.foreground': '#f472b6', // --exec
+    // The executing line is marked by its own decoration and gutter arrow, so
+    // the caret (moved programmatically to that line) stays invisible.
+    'editorCursor.foreground': '#00000000',
     'editor.selectionBackground': '#262935', // --border-strong
     'editorIndentGuide.background1': '#1c1e26', // --border
     'editorIndentGuide.activeBackground1': '#262935',
@@ -75,10 +77,13 @@ export function CodePane({ source, line }: CodePaneProps) {
         options: {
           isWholeLine: true,
           className: 'exec-line',
-          marginClassName: 'exec-line-margin',
+          glyphMarginClassName: 'exec-glyph',
         },
       },
     ])
+    // Moving the cursor too makes Monaco's active line-number colour follow the
+    // executing line instead of sitting wherever the caret happens to be.
+    instance.setPosition({ lineNumber: line, column: 1 })
     instance.revealLineInCenterIfOutsideViewport(line)
   }, [line, source])
 
@@ -99,19 +104,18 @@ export function CodePane({ source, line }: CodePaneProps) {
         readOnly: true,
         domReadOnly: true,
         fontSize: 13,
-        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-        lineHeight: 21,
+        fontFamily: 'var(--font-mono), ui-monospace, Menlo, monospace',
+        lineHeight: 24,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
         renderLineHighlight: 'none',
         occurrencesHighlight: 'off',
         selectionHighlight: false,
-        cursorStyle: 'line-thin',
         cursorBlinking: 'solid',
         smoothScrolling: true,
-        padding: { top: 14, bottom: 14 },
+        padding: { top: 10, bottom: 10 },
         lineNumbersMinChars: 3,
-        glyphMargin: false,
+        glyphMargin: true,
         folding: false,
         contextmenu: false,
         scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },

@@ -177,7 +177,7 @@ describe('reconstruct', () => {
     const values: number[] = []
     let ref: string | undefined = (last.stack[last.stack.length - 1].locals.head as { ref: string }).ref
     while (ref !== undefined) {
-      const node = heap[ref]
+      const node: any = heap[ref]
       values.push(node.fields.val.v)
       ref = node.fields.next.ref
     }

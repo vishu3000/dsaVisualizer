@@ -2,37 +2,38 @@
 
 import { SPEEDS, usePlayer } from '@/lib/store.ts'
 
+// Icon geometry is taken from the design file's transport bar.
 function StepBackIcon() {
   return (
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <path d="M12.5 3.5v9L6 8l6.5-4.5z" fill="currentColor" />
-      <rect x="3.5" y="3.5" width="1.6" height="9" fill="currentColor" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M20 5v14l-11-7z" />
+      <rect x="4" y="5" width="2.6" height="14" rx="1.2" />
     </svg>
   )
 }
 
 function StepForwardIcon() {
   return (
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <path d="M3.5 3.5v9L10 8 3.5 3.5z" fill="currentColor" />
-      <rect x="10.9" y="3.5" width="1.6" height="9" fill="currentColor" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M4 5v14l11-7z" />
+      <rect x="17.4" y="5" width="2.6" height="14" rx="1.2" />
     </svg>
   )
 }
 
 function PlayIcon() {
   return (
-    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-      <path d="M4.5 2.8v10.4L13 8 4.5 2.8z" fill="currentColor" />
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7 4l13 8-13 8z" />
     </svg>
   )
 }
 
 function PauseIcon() {
   return (
-    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-      <rect x="4" y="3" width="3" height="10" fill="currentColor" />
-      <rect x="9" y="3" width="3" height="10" fill="currentColor" />
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="6" y="4" width="4.4" height="16" rx="1.4" />
+      <rect x="13.6" y="4" width="4.4" height="16" rx="1.4" />
     </svg>
   )
 }
@@ -50,13 +51,14 @@ export function TransportBar() {
   const total = trace?.meta.steps ?? 0
   const last = Math.max(0, total - 1)
   const ready = total > 0
+  const progress = last > 0 ? (currentStep / last) * 100 : 0
 
   return (
-    <div className="transport">
+    <div className={`transport${ready ? '' : ' transport-idle'}`}>
       <div className="transport-buttons">
         <button
           type="button"
-          className="transport-button"
+          className="tbutton"
           onClick={() => stepBy(-1)}
           disabled={!ready || currentStep === 0}
           title="Step back"
@@ -67,7 +69,7 @@ export function TransportBar() {
 
         <button
           type="button"
-          className="transport-button transport-button-play"
+          className="tbutton tbutton-play"
           onClick={togglePlaying}
           disabled={!ready}
           title={playing ? 'Pause' : 'Play'}
@@ -78,7 +80,7 @@ export function TransportBar() {
 
         <button
           type="button"
-          className="transport-button"
+          className="tbutton"
           onClick={() => stepBy(1)}
           disabled={!ready || currentStep >= last}
           title="Step forward"
@@ -88,45 +90,51 @@ export function TransportBar() {
         </button>
       </div>
 
-      <label className="speed">
-        <span className="speed-label">speed</span>
-        <select
-          className="speed-select"
-          value={speed}
-          onChange={(event) => setSpeed(Number(event.target.value))}
-          disabled={!ready}
-          aria-label="Playback speed"
-        >
-          {SPEEDS.map((option) => (
-            <option key={option} value={option}>
-              {option}×
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <input
-        type="range"
-        className="scrubber"
-        min={0}
-        max={last}
-        step={1}
-        value={currentStep}
-        onChange={(event) => seek(Number(event.target.value))}
+      <select
+        className="speed-select"
+        value={speed}
+        onChange={(event) => setSpeed(Number(event.target.value))}
         disabled={!ready}
-        aria-label="Scrub to step"
-      />
+        aria-label="Playback speed"
+      >
+        {SPEEDS.map((option) => (
+          <option key={option} value={option}>
+            {option.toFixed(option < 1 ? 2 : 1)}×
+          </option>
+        ))}
+      </select>
 
-      <div className="step-readout">
-        {ready ? (
-          <>
-            step <span className="step-current">{(currentStep + 1).toLocaleString()}</span>
-            <span className="step-sep">/</span>
-            <span className="step-total">{total.toLocaleString()}</span>
-          </>
-        ) : (
-          <span className="step-idle">no trace</span>
-        )}
+      <div className="transport-track">
+        <input
+          type="range"
+          className="scrubber"
+          min={0}
+          max={last}
+          step={1}
+          value={currentStep}
+          onChange={(event) => seek(Number(event.target.value))}
+          disabled={!ready}
+          aria-label="Scrub to step"
+          style={
+            {
+              // A range input cannot paint a filled track on its own.
+              '--scrub-fill': `linear-gradient(to right, var(--exec) ${progress}%, var(--track) ${progress}%)`,
+            } as React.CSSProperties
+          }
+        />
+
+        <span className={`readout${ready ? '' : ' readout-off'}`}>
+          {ready ? (
+            <>
+              step <span className="readout-current">{(currentStep + 1).toLocaleString()}</span>{' '}
+              <span className="readout-slash">/</span> {total.toLocaleString()}
+            </>
+          ) : (
+            <>
+              step — <span className="readout-slash">/</span> —
+            </>
+          )}
+        </span>
       </div>
     </div>
   )

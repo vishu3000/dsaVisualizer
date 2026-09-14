@@ -2,23 +2,61 @@
 
 import { useEffect, useState } from 'react'
 
+import { CanvasPanel } from '@/components/CanvasPanel.tsx'
 import { CodePane } from '@/components/CodePane.tsx'
-import { StatePanel } from '@/components/StatePanel.tsx'
+import { InspectorPanel } from '@/components/InspectorPanel.tsx'
 import { TransportBar } from '@/components/TransportBar.tsx'
 import { BASE_INTERVAL_MS, usePlayer, useSnapshot } from '@/lib/store.ts'
+
+function StatusPill() {
+  const status = usePlayer((state) => state.status)
+  const error = usePlayer((state) => state.error)
+  const trace = usePlayer((state) => state.trace)
+
+  if (status === 'loading') return <span className="pill">loading</span>
+  if (status === 'error') {
+    return (
+      <span className="pill pill-error">
+        <span className="pill-dot" />
+        load failed · {error}
+      </span>
+    )
+  }
+  if (status !== 'ready' || !trace) return <span className="pill">idle</span>
+
+  if (trace.meta.error) {
+    return (
+      <span className="pill pill-error">
+        <span className="pill-dot" />
+        halted · {trace.meta.error.type}
+      </span>
+    )
+  }
+  if (trace.meta.truncated) {
+    return (
+      <span className="pill pill-warn">
+        <span className="pill-dot" />
+        truncated
+      </span>
+    )
+  }
+  return (
+    <span className="pill pill-ready">
+      <span className="pill-dot" />
+      ready
+    </span>
+  )
+}
 
 export default function Page() {
   const [fixtures, setFixtures] = useState<string[]>([])
 
   const load = usePlayer((state) => state.load)
   const fixture = usePlayer((state) => state.fixture)
-  const status = usePlayer((state) => state.status)
-  const error = usePlayer((state) => state.error)
   const source = usePlayer((state) => state.source)
-  const currentStep = usePlayer((state) => state.currentStep)
+  const trace = usePlayer((state) => state.trace)
   const playing = usePlayer((state) => state.playing)
   const speed = usePlayer((state) => state.speed)
-  const trace = usePlayer((state) => state.trace)
 
   const snapshot = useSnapshot()
 
@@ -38,72 +76,64 @@ export default function Page() {
     return () => clearInterval(id)
   }, [playing, speed])
 
-  const truncated = trace?.meta.truncated ?? false
-  const traceError = trace?.meta.error
+  const lineCount = source === '' ? 0 : source.replace(/\n$/, '').split('\n').length
 
   return (
     <div className="app">
-      <header className="chrome">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-name">DSA Visualizer</span>
-        </div>
-
-        <label className="fixture-picker">
-          <span className="fixture-label">trace</span>
+      <header className="titlebar">
+        <div className="titlebar-left">
+          <span className="brand">
+            <span className="brand-mark" />
+            trace
+          </span>
+          <span className="titlebar-divider" />
           <select
             className="fixture-select"
             value={fixture ?? ''}
             onChange={(event) => load(event.target.value)}
             disabled={fixtures.length === 0}
-            aria-label="Fixture"
+            aria-label="Trace"
           >
             {fixtures.map((name) => (
               <option key={name} value={name}>
-                {name}
+                {name}.py
               </option>
             ))}
           </select>
-        </label>
+        </div>
 
-        <div className="chrome-status">
-          {status === 'loading' && <span className="status-note">loading…</span>}
-          {status === 'error' && <span className="status-error">load failed: {error}</span>}
-          {status === 'ready' && truncated && (
-            <span className="status-warn">truncated at step cap</span>
-          )}
-          {status === 'ready' && traceError && (
-            <span className="status-error">
-              {traceError.type} on line {traceError.line}
+        <div className="titlebar-right">
+          {trace && (
+            <span className="step-meta">
+              {trace.meta.steps.toLocaleString()} steps · {trace.deltas.length.toLocaleString()}{' '}
+              deltas
             </span>
           )}
+          <StatusPill />
         </div>
       </header>
 
-      <main className="split">
-        <section className="pane pane-code">
+      <main className="body">
+        <section className="editor">
           <div className="pane-head">
-            <span className="pane-title">{fixture ? `${fixture}.py` : 'source'}</span>
-            <span className="pane-note">read-only</span>
+            <span className="pane-label">Source</span>
+            <span className="pane-meta">python · {lineCount} lines</span>
           </div>
-          <div className="pane-body">
+          <div className="editor-body">
             {source ? (
               <CodePane source={source} line={snapshot?.line ?? 0} />
             ) : (
-              <div className="pane-placeholder">no source</div>
+              <div className="empty-state">
+                <span className="empty-title">No source</span>
+              </div>
             )}
           </div>
         </section>
 
-        <section className="pane pane-state">
-          <div className="pane-head">
-            <span className="pane-title">snapshot</span>
-            <span className="pane-note">reconstructed</span>
-          </div>
-          <div className="pane-body pane-body-scroll">
-            <StatePanel snapshot={snapshot} step={currentStep} />
-          </div>
-        </section>
+        <div className="right-column">
+          <CanvasPanel snapshot={snapshot} trace={trace} />
+          <InspectorPanel snapshot={snapshot} />
+        </div>
       </main>
 
       <TransportBar />
