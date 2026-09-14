@@ -1,8 +1,14 @@
 'use client'
 
+import { useMemo } from 'react'
+
 import { DictRender } from '@/components/render/Dict.tsx'
+import { GraphRender } from '@/components/render/Graph.tsx'
+import { HeapRender } from '@/components/render/Heap.tsx'
+import { LinkedListRender } from '@/components/render/LinkedList.tsx'
 import { ListRender } from '@/components/render/List.tsx'
 import { SetRender } from '@/components/render/Set.tsx'
+import { TreeRender } from '@/components/render/Tree.tsx'
 import { RunProgress } from '@/components/RunProgress.tsx'
 import {
   EMPTY_INFERENCE,
@@ -11,9 +17,10 @@ import {
   mutatedEntries,
   mutatedIndices,
   mutatedMembers,
-  namesForRef,
 } from '@/lib/infer.ts'
 import type { ProgressResponse } from '@/lib/pyodide/messages.ts'
+import { planCanvas, type RenderPlan } from '@/lib/renderers.ts'
+import { graphHighlights } from '@/lib/shapes.ts'
 import type { HeapObj, Snapshot, Trace } from '@/lib/trace/types.ts'
 
 type CanvasPanelProps = {
@@ -26,11 +33,35 @@ type CanvasPanelProps = {
   errorDetail: string | null
 }
 
-const SEQUENCE_KINDS = new Set(['list', 'tuple', 'deque'])
-const DRAWN_KINDS = new Set([...SEQUENCE_KINDS, 'dict', 'set'])
+const KIND_LABEL: Record<RenderPlan['kind'], string> = {
+  list: 'list',
+  tuple: 'tuple',
+  deque: 'deque',
+  dict: 'dict',
+  set: 'set',
+  graph: 'graph',
+  tree: 'tree',
+  linkedlist: 'linked list',
+  heap: 'heap',
+}
 
-function hasItems(obj: HeapObj): obj is Extract<HeapObj, { items: unknown[] }> {
-  return 'items' in obj
+function sizeOf(plan: RenderPlan): string {
+  switch (plan.kind) {
+    case 'graph':
+      return `${plan.model.nodes.length} nodes`
+    case 'tree':
+      return `${plan.model.size} nodes`
+    case 'linkedlist':
+      return `${plan.model.nodes.length} nodes`
+    case 'heap':
+      return `${plan.model.size} items`
+    case 'dict':
+      return `${(plan.obj as Extract<HeapObj, { kind: 'dict' }>).entries.length}`
+    default: {
+      const obj = plan.obj
+      return 'items' in obj ? String(obj.items.length) : ''
+    }
+  }
 }
 
 export function CanvasPanel({
@@ -43,14 +74,33 @@ export function CanvasPanel({
   errorDetail,
 }: CanvasPanelProps) {
   const heap = snapshot?.heap ?? {}
-  const entries = Object.entries(heap)
-  const count = entries.length
-  const hints = Object.entries(trace?.meta.viz ?? {})
-  const traceError = trace?.meta.error
-
   const frame = innermostFrame(snapshot)
-  const drawn = entries.filter(([, obj]) => DRAWN_KINDS.has(obj.kind))
-  const others = entries.filter(([, obj]) => !DRAWN_KINDS.has(obj.kind))
+  const viz = trace?.meta.viz ?? {}
+
+  const { plans, rest } = useMemo(() => planCanvas(snapshot, viz), [snapshot, viz])
+
+  /** Heap refs a local currently points at — what "active" means for a node. */
+  const activeRefs = useMemo(() => {
+    const refs = new Set<string>()
+    if (!frame) return refs
+    for (const val of Object.values(frame.locals)) {
+      if ('ref' in val) refs.add(val.ref)
+    }
+    return refs
+  }, [frame])
+
+  const refLabels = useMemo(() => {
+    const map = new Map<string, string[]>()
+    if (!frame) return map
+    for (const [name, val] of Object.entries(frame.locals)) {
+      if (!('ref' in val)) continue
+      map.set(val.ref, [...(map.get(val.ref) ?? []), name])
+    }
+    return map
+  }, [frame])
+
+  const traceError = trace?.meta.error
+  const count = Object.keys(heap).length
 
   return (
     <section className="canvas">
@@ -59,11 +109,11 @@ export function CanvasPanel({
           <span className="pane-label">Visualization</span>
           {snapshot && (
             <span className="chip">
-              {drawn.length} drawn · {count} heap object{count === 1 ? '' : 's'}
+              {plans.length} drawn · {count} heap object{count === 1 ? '' : 's'}
             </span>
           )}
         </div>
-        <span className="pane-meta">list · tuple · deque · dict · set</span>
+        <span className="pane-meta">@viz drives the renderer</span>
       </div>
 
       <div className="canvas-body">
@@ -90,7 +140,7 @@ export function CanvasPanel({
             {!snapshot && !error && (
               <div className="empty-state">
                 <span className="empty-title">No trace loaded</span>
-                <span className="empty-note">Pick a trace, or write Python and hit Run.</span>
+                <span className="empty-note">Pick a problem, or write Python and hit Run.</span>
               </div>
             )}
 
@@ -101,60 +151,75 @@ export function CanvasPanel({
               </div>
             )}
 
-            {drawn.map(([heapId, obj]) => {
-              const names = namesForRef(snapshot, heapId)
-              const before = previous?.heap[heapId]
-              const size = obj.kind === 'dict' ? obj.entries.length : hasItems(obj) ? obj.items.length : 0
-
-              return (
-                <div className="viz-block" key={heapId}>
-                  <div className="viz-title">
-                    <span className="viz-name">{names[0] ?? `#${heapId.slice(-5)}`}</span>
-                    <span className="viz-type">
-                      {obj.kind === 'dict' ? `dict{${size}}` : `${obj.kind}[${size}]`}
-                    </span>
-                    {names.length > 1 && (
-                      <span className="viz-alias">also {names.slice(1).join(', ')}</span>
-                    )}
-                  </div>
-
-                  {obj.kind === 'dict' ? (
-                    <DictRender
-                      heapId={heapId}
-                      obj={obj}
-                      heap={heap}
-                      mutated={mutatedEntries(obj, before)}
-                    />
-                  ) : obj.kind === 'set' ? (
-                    <SetRender
-                      heapId={heapId}
-                      obj={obj}
-                      heap={heap}
-                      mutated={mutatedMembers(obj, before)}
-                    />
-                  ) : hasItems(obj) ? (
-                    <ListRender
-                      heapId={heapId}
-                      obj={obj}
-                      heap={heap}
-                      inference={
-                        obj.kind === 'list' ? inferForList(frame, obj.items.length) : EMPTY_INFERENCE
-                      }
-                      mutated={mutatedIndices(obj, before)}
-                    />
-                  ) : null}
+            {plans.map((plan) => (
+              <div className="viz-block" key={plan.heapId}>
+                <div className="viz-title">
+                  <span className="viz-name">{plan.name ?? `#${plan.heapId.slice(-5)}`}</span>
+                  <span className="viz-type">
+                    {KIND_LABEL[plan.kind]}
+                    {sizeOf(plan) && ` · ${sizeOf(plan)}`}
+                  </span>
+                  {plan.aliases.length > 0 && (
+                    <span className="viz-alias">also {plan.aliases.join(', ')}</span>
+                  )}
                 </div>
-              )
-            })}
 
-            {others.length > 0 && (
+                {plan.kind === 'graph' ? (
+                  (() => {
+                    const marks = graphHighlights(frame, heap, plan.model)
+                    return (
+                      <GraphRender
+                        model={plan.model}
+                        visited={marks.visited}
+                        pointers={marks.pointers}
+                      />
+                    )
+                  })()
+                ) : plan.kind === 'tree' ? (
+                  <TreeRender model={plan.model} active={activeRefs} />
+                ) : plan.kind === 'linkedlist' ? (
+                  <LinkedListRender model={plan.model} active={activeRefs} labels={refLabels} />
+                ) : plan.kind === 'heap' ? (
+                  <HeapRender
+                    model={plan.model}
+                    mutated={mutatedIndices(plan.obj, previous?.heap[plan.heapId])}
+                  />
+                ) : plan.kind === 'dict' ? (
+                  <DictRender
+                    heapId={plan.heapId}
+                    obj={plan.obj as Extract<HeapObj, { kind: 'dict' }>}
+                    heap={heap}
+                    mutated={mutatedEntries(plan.obj, previous?.heap[plan.heapId])}
+                  />
+                ) : plan.kind === 'set' ? (
+                  <SetRender
+                    heapId={plan.heapId}
+                    obj={plan.obj as Extract<HeapObj, { kind: 'set' }>}
+                    heap={heap}
+                    mutated={mutatedMembers(plan.obj, previous?.heap[plan.heapId])}
+                  />
+                ) : (
+                  <ListRender
+                    heapId={plan.heapId}
+                    obj={plan.obj as Extract<HeapObj, { items: never[] }>}
+                    heap={heap}
+                    inference={
+                      plan.kind === 'list' && 'items' in plan.obj
+                        ? inferForList(frame, plan.obj.items.length)
+                        : EMPTY_INFERENCE
+                    }
+                    mutated={mutatedIndices(plan.obj, previous?.heap[plan.heapId])}
+                  />
+                )}
+              </div>
+            ))}
+
+            {rest.length > 0 && (
               <details className="viz-rest">
                 <summary>
-                  {others.length} other heap object{others.length === 1 ? '' : 's'} (raw)
+                  {rest.length} other heap object{rest.length === 1 ? '' : 's'} (raw)
                 </summary>
-                <pre className="json-dump">
-                  {JSON.stringify(Object.fromEntries(others), null, 2)}
-                </pre>
+                <pre className="json-dump">{JSON.stringify(Object.fromEntries(rest), null, 2)}</pre>
               </details>
             )}
           </>
@@ -179,14 +244,13 @@ export function CanvasPanel({
           just mutated
         </span>
         <span className="legend-item">
+          <span className="legend-swatch swatch-visited" />
+          visited
+        </span>
+        <span className="legend-item">
           <span className="legend-swatch swatch-dim" />
           out of range
         </span>
-        {hints.length > 0 && (
-          <span className="legend-item legend-hints">
-            @viz {hints.map(([name, kind]) => `${name} ${kind}`).join(' · ')}
-          </span>
-        )}
       </div>
     </section>
   )
