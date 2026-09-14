@@ -106,6 +106,13 @@ Pyodide or the store.
 - Graph: elkjs layered, built from `dict[key] = list`.
 - CallStack: frames innermost-first + recursion tree from call/return events.
 
+Routing comes from `@viz` first, then structure. A stack and a queue are both
+`list`, so nothing in a snapshot separates them; each sequence block carries a
+picker (list / stack / queue / heap) that writes `{name: kind}` into the store,
+merged over `meta.viz`. An override is an `@viz` line the source does not have
+to carry: it is keyed by local name, wins over the source's own hint, survives
+stepping and re-running, and is cleared when another problem is loaded.
+
 ## Pointer inference (lib/infer.ts)
 For each int local in the innermost frame: if `0 <= v < len(list)` for a
 visualized list AND the name is one the source subscripts with (`meta.indexNames`,

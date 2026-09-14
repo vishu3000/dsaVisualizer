@@ -53,10 +53,18 @@ type PlayerState = {
   elapsedMs: number | null
   /** True once the editor has been changed since the loaded source. */
   dirty: boolean
+  /**
+   * Renderer choices made from the canvas, as {local name: kind}. Keyed by
+   * name rather than heap id because id() changes on every run, and merged
+   * over meta.viz, so an override is just an `@viz` line the source does not
+   * have to carry.
+   */
+  vizOverrides: Record<string, string>
 
   load: (fixture: string) => Promise<void>
   newScratch: () => void
   setSource: (source: string) => void
+  setVizOverride: (name: string, kind: string | null) => void
   run: () => Promise<void>
   seek: (step: number) => void
   stepBy: (delta: number) => void
@@ -79,6 +87,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   progress: null,
   elapsedMs: null,
   dirty: false,
+  vizOverrides: {},
 
   load: async (fixture) => {
     set({
@@ -88,6 +97,9 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       error: null,
       errorDetail: null,
       progress: null,
+      // Overrides are keyed by local name, so they would otherwise follow a
+      // name like `queue` into an unrelated program.
+      vizOverrides: {},
     })
     try {
       const [traceResponse, sourceResponse] = await Promise.all([
@@ -137,6 +149,16 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       errorDetail: null,
       progress: null,
       elapsedMs: null,
+      vizOverrides: {},
+    }),
+
+  /** Null clears the choice and hands the block back to automatic routing. */
+  setVizOverride: (name, kind) =>
+    set((state) => {
+      const next = { ...state.vizOverrides }
+      if (kind === null) delete next[name]
+      else next[name] = kind
+      return { vizOverrides: next }
     }),
 
   setSource: (source) => set({ source, dirty: true }),

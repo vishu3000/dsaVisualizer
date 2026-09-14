@@ -84,6 +84,21 @@ export type CanvasPlan = {
 /** Below this a tree or chain is a single object, not a shape. */
 export const MIN_SHAPE_NODES = 2
 
+/**
+ * Drawings a sequence of items can legitimately be given.
+ *
+ * A stack and a queue are both `list`, so nothing in a snapshot tells them
+ * apart — the choice is the reader's, made either in the source with `@viz`
+ * or from the canvas. The other heap kinds are not offered: a dict is not a
+ * queue however you squint at it.
+ */
+export const SEQUENCE_KINDS = ['list', 'stack', 'queue', 'heap'] as const
+
+/** True when this block's drawing is a choice rather than a fact. */
+export function isRetargetable(kind: RendererKind): boolean {
+  return (SEQUENCE_KINDS as readonly string[]).includes(kind) || kind === 'deque' || kind === 'tuple'
+}
+
 function isVizKind(value: string | undefined): value is RendererKind {
   return value !== undefined && (VIZ_KINDS as string[]).includes(value)
 }
@@ -102,9 +117,12 @@ function chooseKind(
     if (hinted === 'heap' && 'items' in obj) return 'heap'
     if (hinted === 'tree' && obj.kind === 'obj') return 'tree'
     if (hinted === 'linkedlist' && obj.kind === 'obj') return 'linkedlist'
-    // A stack and a queue are both lists; only the hint says which.
+    // A stack and a queue are both lists; only the hint says which. `list`
+    // is here too so the hint can pull a deque back to a plain row of cells,
+    // which `hinted === obj.kind` below would never do.
     if (hinted === 'stack' && 'items' in obj) return 'stack'
     if (hinted === 'queue' && 'items' in obj) return 'queue'
+    if (hinted === 'list' && 'items' in obj) return 'list'
     // `@viz deque` names the type, not a separate drawing: a deque is a queue.
     if (hinted === 'deque' && 'items' in obj) return 'queue'
     if (hinted === obj.kind) return hinted

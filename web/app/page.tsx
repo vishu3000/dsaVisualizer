@@ -44,6 +44,7 @@ export default function Page() {
   const currentStep = usePlayer((state) => state.currentStep)
   const playing = usePlayer((state) => state.playing)
   const speed = usePlayer((state) => state.speed)
+  const vizOverrides = usePlayer((state) => state.vizOverrides)
 
   const snapshot = useSnapshot()
   const previous = usePreviousSnapshot()
@@ -146,6 +147,8 @@ export default function Page() {
             running={running}
             error={status === 'error' ? error : null}
             errorDetail={status === 'error' ? errorDetail : null}
+            overrides={vizOverrides}
+            onRetarget={(name, kind) => usePlayer.getState().setVizOverride(name, kind)}
           />
 
           <Splitter

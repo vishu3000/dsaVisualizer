@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { innermostFrame } from './infer.ts'
-import { MIN_SHAPE_NODES, planCanvas } from './renderers.ts'
+import { MIN_SHAPE_NODES, isRetargetable, planCanvas } from './renderers.ts'
 import {
   buildBinaryTree,
   buildGraph,
@@ -363,5 +363,67 @@ describe('registry routing', () => {
     const plan = planCanvas(null, {})
     assert.deepEqual(plan.plans, [])
     assert.equal(plan.rest.length, 0)
+  })
+})
+
+describe('drawing chosen from the canvas', () => {
+  // The picker writes {name: kind} and the canvas merges it over meta.viz, so
+  // an override is exactly an `@viz` line the source does not have to carry.
+  const withOverride = (name: string, local: string, overrides: Record<string, string>) => {
+    const trace = load(name)
+    // The last step has usually returned out of the function, so pick the last
+    // one where the name is actually bound.
+    const bound = steps(name).filter((step) =>
+      step.stack.some((frame) => local in frame.locals),
+    )
+    assert.ok(bound.length > 0, `${local} is never in scope in ${name}`)
+    return planCanvas(bound[bound.length - 1], { ...trace.meta.viz, ...overrides })
+  }
+
+  it('draws a plain list as a stack on request', () => {
+    const before = withOverride('two_pointer', 'nums', {})
+    assert.equal(before.plans.find((plan) => plan.name === 'nums')?.kind, 'list')
+
+    const after = withOverride('two_pointer', 'nums', { nums: 'stack' })
+    assert.equal(after.plans.find((plan) => plan.name === 'nums')?.kind, 'stack')
+  })
+
+  it('draws a plain list as a queue on request', () => {
+    const { plans } = withOverride('two_pointer', 'nums', { nums: 'queue' })
+    assert.equal(plans.find((plan) => plan.name === 'nums')?.kind, 'queue')
+  })
+
+  it('overrides the hint the source already carries', () => {
+    // stack_ops says `@viz stack stack`; the reader disagrees.
+    assert.equal(
+      withOverride('stack_ops', 'stack', {}).plans.find((p) => p.name === 'stack')?.kind,
+      'stack',
+    )
+    assert.equal(
+      withOverride('stack_ops', 'stack', { stack: 'queue' }).plans.find((p) => p.name === 'stack')?.kind,
+      'queue',
+    )
+  })
+
+  it('pulls a deque back to a row of cells', () => {
+    // A deque routes to the queue drawing on its own, so `list` has to be an
+    // accepted hint or this choice would silently do nothing.
+    assert.equal(
+      withOverride('queue_ops', 'queue', {}).plans.find((p) => p.name === 'queue')?.kind,
+      'queue',
+    )
+    assert.equal(
+      withOverride('queue_ops', 'queue', { queue: 'list' }).plans.find((p) => p.name === 'queue')?.kind,
+      'list',
+    )
+  })
+
+  it('offers the choice only where the drawing is a choice', () => {
+    for (const kind of ['list', 'stack', 'queue', 'heap', 'deque', 'tuple'] as const) {
+      assert.ok(isRetargetable(kind), `${kind} should be retargetable`)
+    }
+    for (const kind of ['graph', 'tree', 'linkedlist', 'dict', 'set'] as const) {
+      assert.ok(!isRetargetable(kind), `${kind} is structural, not a choice`)
+    }
   })
 })

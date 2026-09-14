@@ -22,7 +22,12 @@ import {
   valueCursors,
 } from '@/lib/infer.ts'
 import type { ProgressResponse } from '@/lib/pyodide/messages.ts'
-import { planCanvas, type RenderPlan } from '@/lib/renderers.ts'
+import {
+  SEQUENCE_KINDS,
+  isRetargetable,
+  planCanvas,
+  type RenderPlan,
+} from '@/lib/renderers.ts'
 import { graphHighlights } from '@/lib/shapes.ts'
 import type { HeapObj, Snapshot, Trace } from '@/lib/trace/types.ts'
 
@@ -34,6 +39,9 @@ type CanvasPanelProps = {
   running: boolean
   error: string | null
   errorDetail: string | null
+  /** Renderer choices made from the canvas, as {local name: kind}. */
+  overrides: Record<string, string>
+  onRetarget: (name: string, kind: string | null) => void
 }
 
 const KIND_LABEL: Record<RenderPlan['kind'], string> = {
@@ -77,10 +85,15 @@ export function CanvasPanel({
   running,
   error,
   errorDetail,
+  overrides,
+  onRetarget,
 }: CanvasPanelProps) {
   const heap = snapshot?.heap ?? {}
   const frame = innermostFrame(snapshot)
-  const viz = trace?.meta.viz ?? {}
+  const viz = useMemo(
+    () => ({ ...(trace?.meta.viz ?? {}), ...overrides }),
+    [trace, overrides],
+  )
 
   const { plans, rest } = useMemo(() => planCanvas(snapshot, viz), [snapshot, viz])
 
@@ -164,10 +177,41 @@ export function CanvasPanel({
               <div className="viz-block" key={plan.heapId}>
                 <div className="viz-title">
                   <span className="viz-name">{plan.name ?? `#${plan.heapId.slice(-5)}`}</span>
-                  <span className="viz-type">
-                    {KIND_LABEL[plan.kind]}
-                    {sizeOf(plan) && ` · ${sizeOf(plan)}`}
-                  </span>
+
+                  {/* A stack and a queue are the same list, so the drawing is
+                      the reader's call. Anonymous blocks have no stable key to
+                      remember the choice under, so they keep the plain chip. */}
+                  {plan.name && isRetargetable(plan.kind) ? (
+                    <label
+                      className={
+                        overrides[plan.name] ? 'viz-kind viz-kind-set' : 'viz-kind'
+                      }
+                    >
+                      <select
+                        value={overrides[plan.name] ?? ''}
+                        onChange={(event) =>
+                          onRetarget(plan.name!, event.target.value || null)
+                        }
+                        aria-label={`Draw ${plan.name} as`}
+                      >
+                        {/* plan.kind is already the override's answer, so it
+                            cannot describe what automatic routing would pick. */}
+                        <option value="">
+                          {overrides[plan.name] ? 'auto' : `auto · ${KIND_LABEL[plan.kind]}`}
+                        </option>
+                        {SEQUENCE_KINDS.map((kind) => (
+                          <option key={kind} value={kind}>
+                            {KIND_LABEL[kind]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <span className="viz-type">{KIND_LABEL[plan.kind]}</span>
+                  )}
+
+                  {sizeOf(plan) && <span className="viz-size">{sizeOf(plan)}</span>}
+
                   {plan.aliases.length > 0 && (
                     <span className="viz-alias">also {plan.aliases.join(', ')}</span>
                   )}

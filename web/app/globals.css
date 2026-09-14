@@ -594,7 +594,8 @@ kbd {
   color: var(--text-hi);
 }
 
-.viz-type {
+.viz-type,
+.viz-kind {
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   color: var(--pointer);
@@ -602,6 +603,59 @@ kbd {
   border: 1px solid rgb(56 189 248 / 22%);
   border-radius: 4px;
   padding: 3px 6px;
+}
+
+/* The chip is the control: a bare select inside it, so the drawing can be
+   changed where it is being read rather than by editing the source. */
+.viz-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.viz-kind:hover {
+  border-color: rgb(56 189 248 / 55%);
+}
+
+.viz-kind select {
+  appearance: none;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 3px 20px 3px 6px;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 11px) 55%, calc(100% - 7px) 55%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.viz-kind select:focus {
+  outline: none;
+}
+
+.viz-kind:focus-within {
+  border-color: var(--pointer);
+}
+
+/* An explicit choice is not the automatic one, and should not look like it. */
+.viz-kind-set {
+  color: var(--exec-text);
+  background: rgb(244 114 182 / 10%);
+  border-color: rgb(244 114 182 / 38%);
+}
+
+.viz-kind-set:hover {
+  border-color: var(--exec);
+}
+
+.viz-size {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--text-meta);
 }
 
 .viz-alias {
