@@ -73,6 +73,7 @@ export default function Page() {
   const progress = usePlayer((state) => state.progress)
   const elapsedMs = usePlayer((state) => state.elapsedMs)
   const dirty = usePlayer((state) => state.dirty)
+  const currentStep = usePlayer((state) => state.currentStep)
   const playing = usePlayer((state) => state.playing)
   const speed = usePlayer((state) => state.speed)
 
@@ -168,7 +169,12 @@ export default function Page() {
             error={status === 'error' ? error : null}
             errorDetail={status === 'error' ? errorDetail : null}
           />
-          <InspectorPanel snapshot={snapshot} />
+          <InspectorPanel
+            snapshot={snapshot}
+            trace={trace}
+            step={currentStep}
+            onSeek={(target) => usePlayer.getState().seek(target)}
+          />
         </div>
       </main>
 

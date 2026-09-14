@@ -54,6 +54,27 @@ function applyPatch(doc: Snapshot, ops: Delta): void {
   }
 }
 
+/**
+ * Walk every snapshot in order, applying each delta once.
+ *
+ * Reconstructing step by step costs O(steps x keyframe interval); this is one
+ * pass over the deltas, which is what makes whole-trace analysis (the recursion
+ * tree) affordable. The visitor is handed one mutable snapshot that is reused
+ * for every step, so it must copy anything it intends to keep.
+ */
+export function replay(trace: Trace, visit: (index: number, snapshot: Snapshot) => void): void {
+  const total = trace.meta.steps
+  if (total === 0) return
+
+  const snapshot = structuredClone(trace.init)
+  visit(0, snapshot)
+
+  for (let i = 1; i < total; i++) {
+    applyPatch(snapshot, trace.deltas[i - 1])
+    visit(i, snapshot)
+  }
+}
+
 export function reconstruct(trace: Trace, i: number): Snapshot {
   const total = trace.meta.steps
   if (!Number.isInteger(i) || i < 0 || i >= total) {

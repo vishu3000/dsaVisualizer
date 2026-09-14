@@ -774,6 +774,300 @@ button:disabled {
   margin-top: 8px;
 }
 
+/* ── Call stack ────────────────────────────────────────────────────────── */
+
+.stack-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.frames {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.frame-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  border: 1px solid var(--card-bd);
+  border-radius: 6px;
+  background: var(--card-bg);
+  padding: 9px 12px;
+  min-width: 0;
+}
+
+.frame-card-active {
+  border-color: var(--cell-bd);
+  border-left: 2px solid var(--exec);
+  background: var(--card-active-bg);
+}
+
+.frame-id {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  min-width: 168px;
+}
+
+.frame-badge {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--chip-bg);
+  border-radius: 3px;
+  padding: 4px 5px;
+}
+
+.frame-badge-active {
+  color: var(--exec-text);
+  background: rgb(244 114 182 / 14%);
+}
+
+.frame-fn {
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.frame-card-active .frame-fn {
+  color: var(--text-hi);
+}
+
+.frame-line {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--text-meta);
+}
+
+.frame-card-active .frame-line {
+  color: var(--text-dim);
+}
+
+.frame-locals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.local-chip {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--syn-operator);
+  background: var(--chip-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.local-empty {
+  font-size: 11px;
+  color: var(--text-disabled);
+}
+
+.tone-number {
+  color: var(--syn-number);
+}
+
+.tone-string {
+  color: var(--syn-string);
+}
+
+.tone-bool {
+  color: var(--syn-keyword);
+}
+
+.tone-none {
+  color: var(--text-dim);
+}
+
+.tone-ref {
+  color: var(--pointer);
+}
+
+/* ── Recursion tree ────────────────────────────────────────────────────── */
+
+.tree {
+  min-width: 0;
+  border: 1px solid var(--card-bd);
+  border-radius: 6px;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+
+.tree-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tree-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.tree-meta {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  color: var(--text-gutter);
+}
+
+.tree-body {
+  display: flex;
+  flex-direction: column;
+  padding: 5px 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.tree-note {
+  padding: 4px 10px 7px;
+  font-size: 10.5px;
+  color: var(--text-gutter);
+}
+
+.tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  width: 100%;
+  padding: 3px 10px 3px 8px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.tree-row:hover {
+  background: rgb(255 255 255 / 3%);
+}
+
+.tree-fn {
+  flex: none;
+}
+
+.tree-args {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-gutter);
+}
+
+.tree-steps {
+  flex: none;
+  font-size: 10px;
+  color: var(--text-disabled);
+}
+
+.tree-done .tree-fn {
+  color: var(--text-dim);
+}
+
+.tree-pending .tree-fn {
+  color: var(--text-disabled);
+}
+
+.tree-pending .tree-args {
+  color: var(--text-disabled);
+}
+
+.tree-active {
+  background: var(--exec-line-bg);
+  box-shadow: inset 2px 0 0 var(--exec);
+}
+
+.tree-active .tree-fn {
+  color: var(--exec-text);
+  font-weight: 600;
+}
+
+.tree-active .tree-steps {
+  color: var(--text-dim);
+}
+
+/* ── Variables ─────────────────────────────────────────────────────────── */
+
+.variables {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.variables-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.variables-scope {
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  color: var(--text-hi);
+}
+
+.variables-count {
+  font-size: 10.5px;
+  color: var(--text-gutter);
+}
+
+.variables-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+}
+
+.variables-table td {
+  padding: 4px 10px 4px 0;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.var-name {
+  width: 1%;
+  white-space: nowrap;
+  color: var(--text-hi);
+}
+
+.var-type {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.var-preview {
+  color: var(--text-dim);
+  word-break: break-word;
+}
+
+.variables-stdout {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
 /* Inspector */
 
 .inspector {
