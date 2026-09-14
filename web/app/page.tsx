@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CanvasPanel } from '@/components/CanvasPanel.tsx'
 import { CodePane } from '@/components/CodePane.tsx'
 import { InspectorPanel } from '@/components/InspectorPanel.tsx'
+import { NewFixtureModal } from '@/components/NewFixtureModal.tsx'
 import { Sidebar } from '@/components/Sidebar.tsx'
 import { Splitter } from '@/components/Splitter.tsx'
 import { TransportBar } from '@/components/TransportBar.tsx'
@@ -18,6 +19,16 @@ export default function Page() {
   const bodyRef = useRef<HTMLElement | null>(null)
   const rightRef = useRef<HTMLDivElement | null>(null)
   const { layout, update, reset } = useLayout()
+  const [available, setAvailable] = useState<string[]>([])
+  const [showNew, setShowNew] = useState(false)
+
+  /** Fixtures present on disk, so newly added ones appear without a code edit. */
+  const refreshIndex = useCallback(() => {
+    fetch(`fixtures/index.json?t=${Date.now()}`)
+      .then((response) => response.json())
+      .then((names: string[]) => setAvailable(names))
+      .catch(() => setAvailable([]))
+  }, [])
 
   const load = usePlayer((state) => state.load)
   const setSource = usePlayer((state) => state.setSource)
@@ -39,6 +50,10 @@ export default function Page() {
   const running = status === 'running'
 
   useTransportKeys()
+
+  useEffect(() => {
+    refreshIndex()
+  }, [refreshIndex])
 
   useEffect(() => {
     const target = parseHash(window.location.hash)
@@ -84,6 +99,8 @@ export default function Page() {
           current={dirty || origin === 'live' ? null : fixture}
           disabled={running}
           onPick={(slug) => load(slug)}
+          custom={available.filter((slug) => !PROBLEM_SLUGS.includes(slug))}
+          onNew={() => setShowNew(true)}
         />
 
         <Splitter
@@ -160,6 +177,20 @@ export default function Page() {
       </main>
 
       <TransportBar onResetLayout={reset} />
+
+      {showNew && (
+        <NewFixtureModal
+          initialSource={source}
+          taken={available}
+          onClose={() => setShowNew(false)}
+          onSaved={() => {
+            setShowNew(false)
+            // The file is on disk now, but public/ is only refreshed by the
+            // sync script, so re-read the index rather than assume it is there.
+            refreshIndex()
+          }}
+        />
+      )}
     </div>
   )
 }

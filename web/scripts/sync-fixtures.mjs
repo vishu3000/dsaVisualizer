@@ -20,9 +20,18 @@ const names = readdirSync(join(root, 'fixtures'))
   .map((file) => file.replace(/\.json$/, ''))
   .sort()
 
+const missing = []
 for (const name of names) {
   copyFileSync(join(root, 'fixtures', `${name}.json`), join(fixturesOut, `${name}.json`))
-  copyFileSync(join(root, 'examples', `${name}.py`), join(examplesOut, `${name}.py`))
+
+  // A fixture written from the app's New-fixture modal always ships its source
+  // too, but tolerate one without so a stray trace cannot break the build.
+  const source = join(root, 'examples', `${name}.py`)
+  if (existsSync(source)) copyFileSync(source, join(examplesOut, `${name}.py`))
+  else missing.push(name)
+}
+if (missing.length > 0) {
+  console.warn(`sync-fixtures: no examples/*.py for ${missing.join(', ')}`)
 }
 
 writeFileSync(join(publicDir, 'fixtures', 'index.json'), JSON.stringify(names, null, 2) + '\n')

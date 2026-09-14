@@ -51,7 +51,15 @@ def main(argv=None):
     try:
         # allow_nan=False: Infinity/NaN are not valid JSON and would fail to
         # parse in the browser. Fail here instead of shipping a broken fixture.
-        payload = json.dumps(trace, indent=args.indent, allow_nan=False)
+        # Compact separators match what JSON.stringify produces in the browser,
+        # so a fixture written from the app's modal is byte-identical to one
+        # written here and re-generating never shows up as whitespace churn.
+        payload = json.dumps(
+            trace,
+            indent=args.indent,
+            allow_nan=False,
+            separators=None if args.indent is not None else (",", ":"),
+        )
     except ValueError as exc:
         print(f"tracer: {args.source} is not JSON-serializable: {exc}", file=sys.stderr)
         return 1

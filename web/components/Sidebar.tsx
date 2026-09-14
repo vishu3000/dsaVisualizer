@@ -8,6 +8,9 @@ type SidebarProps = {
   current: string | null
   disabled: boolean
   onPick: (slug: string) => void
+  /** Fixtures on disk that are not in the seeded list. */
+  custom: string[]
+  onNew: () => void
 }
 
 const STORAGE_KEY = 'dsa-visualizer:collapsed-groups'
@@ -26,7 +29,7 @@ function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export function Sidebar({ current, disabled, onPick }: SidebarProps) {
+export function Sidebar({ current, disabled, onPick, custom, onNew }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<string[]>([])
 
   useEffect(() => {
@@ -56,6 +59,15 @@ export function Sidebar({ current, disabled, onPick }: SidebarProps) {
     <nav className="sidebar" aria-label="Problems">
       <div className="sidebar-head">
         <span className="pane-label">Problems</span>
+        <button
+          type="button"
+          className="sidebar-new"
+          onClick={onNew}
+          disabled={disabled}
+          title="Create a fixture from the editor"
+        >
+          + New
+        </button>
       </div>
 
       <div className="sidebar-body">
@@ -95,6 +107,27 @@ export function Sidebar({ current, disabled, onPick }: SidebarProps) {
             </div>
           )
         })}
+
+        {custom.length > 0 && (
+          <div className="sidebar-group">
+            <div className="sidebar-group-label sidebar-group-static">
+              <span>Mine</span>
+              <span className="group-count">{custom.length}</span>
+            </div>
+            {custom.map((slug) => (
+              <button
+                key={slug}
+                type="button"
+                className={slug === current ? 'problem problem-current' : 'problem'}
+                onClick={() => onPick(slug)}
+                disabled={disabled}
+              >
+                <span className="problem-title">{slug}</span>
+                <span className="problem-blurb">from fixtures/{slug}.json</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="sidebar-foot">
