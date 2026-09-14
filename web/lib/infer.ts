@@ -11,6 +11,13 @@ export type PointerHit = {
   index: number
   /** True when this pointer is one end of a shaded span. */
   paired: boolean
+  /**
+   * 'index' — the name holds this position, and the label can show it.
+   * 'value' — the name holds this cell's element (`for job in jobs`). The
+   * position is where that value was found, not something the program knows,
+   * so the label shows the name alone.
+   */
+  kind: 'index' | 'value'
 }
 
 export type SpanHit = {
@@ -61,16 +68,49 @@ export function intLocals(frame: Frame): Map<string, number> {
 }
 
 /**
+ * Loop variables currently walking this list by value, as {name: cell index}.
+ *
+ * `for job in jobs` binds an element, so the cursor's position has to be
+ * recovered by finding the element. A duplicate value is genuinely ambiguous
+ * from one snapshot — nothing in the frame says which occurrence the iterator
+ * is on — so the first match wins and the label carries no index, rather than
+ * asserting a position the trace does not know.
+ */
+export function valueCursors(
+  frame: Frame,
+  items: Val[],
+  heapId: string,
+  iterNames: Record<string, string>,
+): Map<string, number> {
+  const found = new Map<string, number>()
+
+  for (const [loopVar, container] of Object.entries(iterNames)) {
+    const bound = frame.locals[container]
+    // Only when the name the loop iterates is *this* list, right now.
+    if (!bound || !isRef(bound) || bound.ref !== heapId) continue
+
+    const held = frame.locals[loopVar]
+    if (!held) continue
+
+    const at = items.findIndex((item) => valKey(item) === valKey(held))
+    if (at >= 0) found.set(loopVar, at)
+  }
+  return found
+}
+
+/**
  * @param indexNames Names the source actually subscripts, from meta.indexNames.
  *   Being an int that lands inside the list is not enough to be a cursor —
  *   `max_profit = 4` over six prices looks identical to one. Pass null for a
  *   trace recorded before the tracer reported this, where every in-range int
  *   is the best guess available.
+ * @param cursors Loop variables walking this list by value, from valueCursors.
  */
 export function inferForList(
   frame: Frame | null,
   length: number,
   indexNames: string[] | null,
+  cursors: Map<string, number> = new Map(),
 ): ListInference {
   if (!frame || length === 0) return EMPTY_INFERENCE
 
@@ -99,8 +139,15 @@ export function inferForList(
   const pointers: PointerHit[] = []
   for (const [name, value] of ints) {
     if (indexes(value) && isCursor(name)) {
-      pointers.push({ name, index: value, paired: paired.has(name) })
+      pointers.push({ name, index: value, paired: paired.has(name), kind: 'index' })
     }
+  }
+  for (const [name, at] of cursors) {
+    // An index reading beats a value reading: `for i in indices` walking a
+    // list it also subscripts should point where the program says, not where
+    // the value happens to sit.
+    if (pointers.some((pointer) => pointer.name === name)) continue
+    pointers.push({ name, index: at, paired: false, kind: 'value' })
   }
   pointers.sort((a, b) => a.index - b.index || a.name.localeCompare(b.name))
 

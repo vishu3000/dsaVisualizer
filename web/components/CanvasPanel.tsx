@@ -19,6 +19,7 @@ import {
   mutatedEntries,
   mutatedIndices,
   mutatedMembers,
+  valueCursors,
 } from '@/lib/infer.ts'
 import type { ProgressResponse } from '@/lib/pyodide/messages.ts'
 import { planCanvas, type RenderPlan } from '@/lib/renderers.ts'
@@ -108,6 +109,7 @@ export function CanvasPanel({
   // null, not [], for a trace recorded before the tracer reported this: an
   // empty list means "this program indexes nothing", which is a real answer.
   const indexNames = trace?.meta.indexNames ?? null
+  const iterNames = trace?.meta.iterNames ?? {}
 
   return (
     <section className="canvas">
@@ -226,7 +228,14 @@ export function CanvasPanel({
                     heap={heap}
                     inference={
                       plan.kind === 'list' && 'items' in plan.obj
-                        ? inferForList(frame, plan.obj.items.length, indexNames)
+                        ? inferForList(
+                            frame,
+                            plan.obj.items.length,
+                            indexNames,
+                            frame
+                              ? valueCursors(frame, plan.obj.items, plan.heapId, iterNames)
+                              : undefined,
+                          )
                         : EMPTY_INFERENCE
                     }
                     mutated={mutatedIndices(plan.obj, previous?.heap[plan.heapId])}

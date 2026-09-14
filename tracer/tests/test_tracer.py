@@ -472,3 +472,38 @@ def test_index_names_survive_a_syntax_error():
     trace = run_trace("def f(:\n    pass\n")
     assert trace["meta"]["error"]["type"] == "SyntaxError"
     assert trace["meta"]["indexNames"] == []
+
+
+def test_iter_names_record_loops_that_walk_a_container():
+    trace = run(
+        """
+        jobs = ["a", "b"]
+        served = []
+        for job in jobs:
+            served.append(job)
+        for item in reversed(served):
+            print(item)
+        """
+    )
+    assert trace["meta"]["iterNames"] == {"job": "jobs", "item": "served"}
+
+
+def test_iter_names_skip_expressions_and_tuple_targets():
+    trace = run(
+        """
+        adj = {0: [1, 2]}
+        edges = [(0, 1)]
+        nums = [3, 1, 2]
+        for nxt in adj[0]:
+            print(nxt)
+        for a, b in edges:
+            print(a, b)
+        for value in sorted(nums):
+            print(value)
+        for k in range(2):
+            print(k)
+        """
+    )
+    # A subscript, a tuple target, a freshly sorted copy and range() all walk
+    # something other than a container the reader is looking at.
+    assert trace["meta"]["iterNames"] == {}

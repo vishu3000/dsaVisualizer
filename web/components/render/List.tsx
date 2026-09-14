@@ -149,7 +149,9 @@ export function ListRender({ heapId, obj, heap, inference, mutated }: ListProps)
                       rank === 0 && lanes.get(index) ? { marginTop: LANE_DROP } : undefined
                     }
                   >
-                    {hit.name} {hit.index}
+                    {/* A value cursor has no index to show: it holds the cell,
+                        and where that cell sits is the renderer's answer. */}
+                    {hit.kind === 'value' ? hit.name : `${hit.name} ${hit.index}`}
                   </span>
                 ))}
               </span>

@@ -41,6 +41,10 @@ export type Trace = {
     // merely holds an in-range number. Absent on traces recorded before it
     // existed, which infer.ts reads as "no information".
     indexNames?: string[]
+    // Loop variables that walk a container by value — {job: 'jobs'} for
+    // `for job in jobs`. They hold elements rather than indices, so the list
+    // would otherwise be drawn with no cursor while the loop walks it.
+    iterNames?: Record<string, string>
   }
   init: Snapshot
   keyframes: Record<number, Snapshot> // every 500 steps

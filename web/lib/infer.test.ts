@@ -12,6 +12,7 @@ import {
   intLocals,
   mutatedIndices,
   namesForRef,
+  valueCursors,
 } from './infer.ts'
 import { reconstruct } from './trace/reconstruct.ts'
 import type { HeapObj, Snapshot, Trace } from './trace/types.ts'
@@ -324,6 +325,74 @@ describe('names the source never subscripts', () => {
     assert.deepEqual(
       inference.pointers.map((p) => p.name).sort(),
       ['current_price', 'max_profit', 'min_price'],
+    )
+  })
+})
+
+describe('value cursors', () => {
+  const items = [{ v: 7 }, { v: 1 }, { v: 5 }, { v: 3 }, { v: 6 }, { v: 4 }]
+  const frame = {
+    fn: 'maxProfit',
+    line: 9,
+    locals: {
+      prices: { ref: 'L' },
+      min_price: { v: 1 },
+      max_profit: { v: 4 },
+      current_price: { v: 3 },
+    },
+  } as never
+
+  const iterNames = { current_price: 'prices' }
+
+  it('finds the cell the loop variable currently holds', () => {
+    const cursors = valueCursors(frame, items as never, 'L', iterNames)
+    assert.deepEqual([...cursors], [['current_price', 3]])
+  })
+
+  it('draws the loop variable and nothing else', () => {
+    const cursors = valueCursors(frame, items as never, 'L', iterNames)
+    const inference = inferForList(frame, items.length, [], cursors)
+
+    assert.deepEqual(
+      inference.pointers.map((p) => [p.name, p.index, p.kind]),
+      [['current_price', 3, 'value']],
+    )
+    // The cell it sits on lights up, which is the whole point.
+    assert.ok(inference.active.has(3))
+    assert.equal(cellState(3, inference, new Set()), 'active')
+  })
+
+  it('ignores a loop over some other list', () => {
+    const cursors = valueCursors(frame, items as never, 'OTHER', iterNames)
+    assert.equal(cursors.size, 0)
+  })
+
+  it('resolves a duplicate value to the first occurrence', () => {
+    const dupes = [{ v: 2 }, { v: 9 }, { v: 2 }] as never
+    const walking = {
+      fn: 'f',
+      line: 2,
+      locals: { xs: { ref: 'L' }, x: { v: 2 } },
+    } as never
+
+    assert.deepEqual([...valueCursors(walking, dupes, 'L', { x: 'xs' })], [['x', 0]])
+  })
+
+  it('prefers the index reading when a name is both', () => {
+    const both = {
+      fn: 'f',
+      line: 2,
+      locals: { xs: { ref: 'L' }, i: { v: 5 } },
+    } as never
+
+    // i holds 5: cell 5 read as an index, cell 2 (which holds 5) read as a value.
+    const cursors = valueCursors(both, items as never, 'L', { i: 'xs' })
+    assert.deepEqual([...cursors], [['i', 2]])
+
+    const inference = inferForList(both, items.length, ['i'], cursors)
+    assert.deepEqual(
+      inference.pointers.map((p) => [p.name, p.index, p.kind]),
+      [['i', 5, 'index']],
     )
   })
 })

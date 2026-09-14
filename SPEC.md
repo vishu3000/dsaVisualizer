@@ -118,6 +118,11 @@ Value alone is not enough to identify a cursor: `max_profit = 4` over a
 six-element list is indistinguishable from an index into it, and `for x in xs`
 binds elements that are usually valid indices into their own list.
 
+A loop that walks a visualized list by value (`for job in jobs`, recorded in
+`meta.iterNames`) still gets a cursor, placed at the cell holding its element.
+Its label shows the name alone: the position was found by matching the value,
+not read off the program, and a duplicate value resolves to the first match.
+
 ## Cell states (CSS variables, all renderers)
 default, active, in-window, just-mutated, dimmed/out-of-range.
 

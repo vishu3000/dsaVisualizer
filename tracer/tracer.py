@@ -70,6 +70,43 @@ def parse_index_names(tree):
     return sorted(names)
 
 
+def parse_iter_names(tree):
+    """Loop variables that walk a container by value: `for job in jobs`.
+
+    Such a name is not an index — it holds the element — so the subscript rule
+    in parse_index_names correctly refuses it, and the list would then be drawn
+    with no cursor at all even though the loop is plainly walking it. Recording
+    which container a loop variable came from lets the renderer mark the cell
+    whose value it currently holds.
+
+    Only a bare name or `reversed(name)` counts. `for x in adj[node]` and
+    `for x in sorted(xs)` walk something built on the spot, not the container
+    the reader is looking at. Tuple targets (`for a, b in edges`) are skipped:
+    neither name holds an element of the drawn list.
+
+    Returns {loop variable: container name}. Two loops reusing one variable
+    over different containers keep the last, which is the one a reader is most
+    likely to be looking at by then.
+    """
+    names = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.For) or not isinstance(node.target, ast.Name):
+            continue
+
+        source = node.iter
+        if (
+            isinstance(source, ast.Call)
+            and isinstance(source.func, ast.Name)
+            and source.func.id == "reversed"
+            and len(source.args) == 1
+        ):
+            source = source.args[0]
+
+        if isinstance(source, ast.Name):
+            names[node.target.id] = source.id
+    return names
+
+
 def check_imports(source, tree):
     """Return a rejection message for the first non-whitelisted import, else None."""
     for node in ast.walk(tree):
@@ -118,6 +155,7 @@ def run_trace(source):
         )
 
     index_names = parse_index_names(tree)
+    iter_names = parse_iter_names(tree)
 
     rejected = check_imports(source, tree)
     if rejected is not None:
@@ -133,6 +171,7 @@ def run_trace(source):
             },
             viz,
             index_names,
+            iter_names,
         )
 
     compiled = compile(tree, USER_FILENAME, "exec")
@@ -198,7 +237,7 @@ def run_trace(source):
     finally:
         sys.settrace(previous)
 
-    return _result(steps, truncated, error, viz, index_names)
+    return _result(steps, truncated, error, viz, index_names, iter_names)
 
 
 def _py_error(exc):
@@ -216,12 +255,13 @@ def _py_error(exc):
     }
 
 
-def _result(steps, truncated, error, viz, index_names=()):
+def _result(steps, truncated, error, viz, index_names=(), iter_names=None):
     meta = {
         "steps": len(steps),
         "truncated": truncated,
         "viz": viz,
         "indexNames": list(index_names),
+        "iterNames": dict(iter_names or {}),
     }
     if error is not None:
         meta["error"] = error
