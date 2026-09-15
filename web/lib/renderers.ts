@@ -32,6 +32,8 @@ export type RendererKind =
   | 'heap'
   | 'stack'
   | 'queue'
+  /** Any other instance: drawn as a card of its fields. */
+  | 'obj'
 
 export const VIZ_KINDS: RendererKind[] = [
   'list',
@@ -66,7 +68,7 @@ export type RenderPlan =
       obj: HeapObj
     }
   | {
-      kind: 'list' | 'tuple' | 'deque' | 'dict' | 'set' | 'stack' | 'queue'
+      kind: 'list' | 'tuple' | 'deque' | 'dict' | 'set' | 'stack' | 'queue' | 'obj'
       heapId: string
       name: string | null
       aliases: string[]
@@ -96,6 +98,14 @@ const SHAPE_KINDS = new Set<RendererKind>(['graph', 'tree', 'linkedlist', 'heap'
  * queue however you squint at it.
  */
 export const SEQUENCE_KINDS = ['list', 'stack', 'queue', 'heap'] as const
+
+/**
+ * Fields that usually hold what a wrapper class is wrapping.
+ *
+ * A hand-written Queue or Stack keeps its elements in one of these and its
+ * bookkeeping in the rest, so `@viz queue q` means the field, not the object.
+ */
+const PAYLOAD_FIELDS = ['items', 'data', 'values', 'elements', 'buffer', 'arr', 'list']
 
 /** True when this block's drawing is a choice rather than a fact. */
 export function isRetargetable(kind: RendererKind): boolean {
@@ -142,13 +152,50 @@ function chooseKind(
     case 'set':
       return obj.kind
     case 'obj':
-      // Nothing hinted, so read the fields: left/right is a tree, next is a chain.
+      // Nothing hinted, so read the fields: left/right is a tree, next is a
+      // chain, and anything else is drawn as the object it is rather than not
+      // at all — a hand-written Queue used to produce an empty canvas.
       if (looksLikeTreeNode(obj)) return 'tree'
       if (looksLikeLinkedNode(obj)) return 'linkedlist'
-      return null
+      return 'obj'
     default:
       return null
   }
+}
+
+/**
+ * The container a hint on an instance is really pointing at.
+ *
+ * `@viz queue q` on a hand-written Queue used to do nothing: the hint asks
+ * whether the object has `items`, and an instance keeps its payload under
+ * `fields`, so the check never matched. The hint means the collection inside,
+ * and that is what it now resolves to.
+ */
+export function hintedField(
+  obj: HeapObj,
+  heap: Record<string, HeapObj>,
+  hinted: RendererKind,
+): { heapId: string; obj: HeapObj } | null {
+  if (obj.kind !== 'obj') return null
+
+  const candidate = (val: { ref: string } | { v: unknown } | undefined) => {
+    if (!val || !('ref' in val)) return null
+    const target = heap[val.ref]
+    // Only a container: redirecting onto another instance would move the
+    // problem one level down rather than solve it.
+    if (!target || !('items' in target || target.kind === 'dict')) return null
+    return chooseKind(target, hinted) ? { heapId: val.ref, obj: target } : null
+  }
+
+  for (const name of PAYLOAD_FIELDS) {
+    const hit = candidate(obj.fields[name])
+    if (hit) return hit
+  }
+  for (const val of Object.values(obj.fields)) {
+    const hit = candidate(val)
+    if (hit) return hit
+  }
+  return null
 }
 
 export function planCanvas(snapshot: Snapshot | null, viz: Record<string, string>): CanvasPlan {
@@ -168,16 +215,25 @@ export function planCanvas(snapshot: Snapshot | null, viz: Record<string, string
 
   const candidates: { plan: RenderPlan; consumes: Set<string> }[] = []
 
-  for (const [heapId, obj, names] of named) {
+  for (const [heapId, sourceObj, names] of named) {
     const hint = names.map((name) => viz[name]).find(isVizKind)
+
+    // `@viz queue q` on a hand-written Queue means the collection it holds.
+    const redirect = hint ? hintedField(sourceObj, heap, hint) : null
+    const obj = redirect?.obj ?? sourceObj
+    const drawnId = redirect?.heapId ?? heapId
+
     const kind = chooseKind(obj, hint)
     if (!kind) continue
 
     // A recursive function shadows the outer name (`node` over `root`); the
     // hinted name is the one that describes the whole structure.
     const ordered = [...names].sort((a, b) => Number(!!viz[b]) - Number(!!viz[a]))
-    const base = { heapId, name: ordered[0], aliases: ordered.slice(1) }
+    const base = { heapId: drawnId, name: ordered[0], aliases: ordered.slice(1) }
     const consumes = new Set<string>()
+    // The wrapper is represented by the field being drawn, so it is not also
+    // an undrawn object.
+    if (redirect) consumes.add(heapId)
 
     if (kind === 'graph') {
       const model = buildGraph(obj, heap)
@@ -185,16 +241,23 @@ export function planCanvas(snapshot: Snapshot | null, viz: Record<string, string
       for (const ref of model.consumed) consumes.add(ref)
       candidates.push({ plan: { kind: 'graph', ...base, model }, consumes })
     } else if (kind === 'tree') {
-      const model = buildBinaryTree(heapId, heap)
+      const model = buildBinaryTree(drawnId, heap)
       // A lone node — a freshly constructed one, say — has no structure worth
-      // a diagram, and would sit beside the real tree as a second block.
-      if (!model || model.size < MIN_SHAPE_NODES) continue
-      for (const ref of model.consumed) if (ref !== heapId) consumes.add(ref)
+      // a diagram. It falls back to the object card rather than vanishing; if
+      // it belongs to a bigger tree, claimedByOthers drops it below.
+      if (!model || model.size < MIN_SHAPE_NODES) {
+        candidates.push({ plan: { kind: 'obj', ...base, obj }, consumes })
+        continue
+      }
+      for (const ref of model.consumed) if (ref !== drawnId) consumes.add(ref)
       candidates.push({ plan: { kind: 'tree', ...base, model }, consumes })
     } else if (kind === 'linkedlist') {
-      const model = buildLinkedList(heapId, heap)
-      if (!model || model.nodes.length < MIN_SHAPE_NODES) continue
-      for (const ref of model.consumed) if (ref !== heapId) consumes.add(ref)
+      const model = buildLinkedList(drawnId, heap)
+      if (!model || model.nodes.length < MIN_SHAPE_NODES) {
+        candidates.push({ plan: { kind: 'obj', ...base, obj }, consumes })
+        continue
+      }
+      for (const ref of model.consumed) if (ref !== drawnId) consumes.add(ref)
       candidates.push({ plan: { kind: 'linkedlist', ...base, model }, consumes })
     } else if (kind === 'heap') {
       const model = buildHeapTree(obj, heap)

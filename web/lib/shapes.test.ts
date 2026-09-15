@@ -463,3 +463,62 @@ describe('drawing chosen from the canvas', () => {
     }
   })
 })
+
+describe('plain instances', () => {
+  const heap = {
+    Q: {
+      kind: 'obj' as const,
+      cls: 'Queue',
+      fields: { capacity: { v: 5 }, items: { ref: 'L' }, front: { v: 0 }, size: { v: 3 } },
+    },
+    L: { kind: 'list' as const, items: [{ v: 10 }, { v: 20 }, { v: 30 }] },
+  }
+  const snapshot = {
+    line: 1,
+    event: 'line' as const,
+    stack: [{ fn: '<module>', line: 1, locals: { queue: { ref: 'Q' } } }],
+    heap,
+    stdout: '',
+  } as never
+
+  it('draws a class that is neither a tree nor a chain', () => {
+    // It used to draw nothing at all: chooseKind knew only .left/.right
+    // and .next, and returned null for everything else.
+    const { plans } = planCanvas(snapshot, {})
+    assert.equal(plans.length, 1)
+    assert.equal(plans[0].kind, 'obj')
+    assert.equal(plans[0].name, 'queue')
+  })
+
+  it('points a sequence hint at the collection inside', () => {
+    // `items` lives under fields, so the hint's own `'items' in obj` check
+    // never matched and the block fell through to nothing.
+    const { plans } = planCanvas(snapshot, { queue: 'queue' })
+    assert.equal(plans.length, 1)
+    assert.equal(plans[0].kind, 'queue')
+    assert.equal(plans[0].heapId, 'L', 'should draw the field, not the wrapper')
+    assert.equal(plans[0].name, 'queue', 'but keep the name the reader knows')
+  })
+
+  it('leaves the wrapper out of the raw dump once its field is drawn', () => {
+    const { rest } = planCanvas(snapshot, { queue: 'queue' })
+    assert.deepEqual(rest.map(([id]) => id), [])
+  })
+
+  it('falls back to the card when a node is too small to be a tree', () => {
+    // A Node mid-construction is not yet a tree; it used to vanish.
+    const lone = {
+      line: 1,
+      event: 'line' as const,
+      stack: [{ fn: '__init__', line: 1, locals: { self: { ref: 'N' } } }],
+      heap: {
+        N: { kind: 'obj' as const, cls: 'Node', fields: { key: { v: 50 }, left: { v: null }, right: { v: null } } },
+      },
+      stdout: '',
+    } as never
+
+    const { plans } = planCanvas(lone, {})
+    assert.equal(plans.length, 1)
+    assert.equal(plans[0].kind, 'obj')
+  })
+})

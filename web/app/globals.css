@@ -832,6 +832,60 @@ kbd {
   color: var(--text-disabled);
 }
 
+/* ── Object card ───────────────────────────────────────────────────────── */
+
+.obj-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--card-bd);
+  border-radius: 7px;
+  background: var(--card-bg);
+  width: max-content;
+  min-width: 220px;
+  max-width: 100%;
+}
+
+.obj-field {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* A field holding a sequence gets its cells on their own line. */
+.obj-field-wide {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.obj-field-name {
+  flex: none;
+  min-width: 74px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.obj-field-value {
+  min-width: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.viz-cls {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--visited);
+  background: rgb(45 212 191 / 8%);
+  border: 1px solid rgb(45 212 191 / 22%);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
 /* ── Dict / Set buckets ────────────────────────────────────────────────── */
 
 .buckets {

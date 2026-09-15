@@ -7,6 +7,7 @@ import { GraphRender } from '@/components/render/Graph.tsx'
 import { HeapRender } from '@/components/render/Heap.tsx'
 import { LinkedListRender } from '@/components/render/LinkedList.tsx'
 import { ListRender } from '@/components/render/List.tsx'
+import { ObjRender } from '@/components/render/Obj.tsx'
 import { QueueRender } from '@/components/render/Queue.tsx'
 import { StackRender } from '@/components/render/Stack.tsx'
 import { SetRender } from '@/components/render/Set.tsx'
@@ -57,6 +58,7 @@ const KIND_LABEL: Record<RenderPlan['kind'], string> = {
   heap: 'heap',
   stack: 'stack',
   queue: 'queue',
+  obj: 'object',
 }
 
 function sizeOf(plan: RenderPlan): string {
@@ -71,6 +73,10 @@ function sizeOf(plan: RenderPlan): string {
       return `${plan.model.size} items`
     case 'dict':
       return `${(plan.obj as Extract<HeapObj, { kind: 'dict' }>).entries.length}`
+    case 'obj': {
+      const fields = Object.keys((plan.obj as Extract<HeapObj, { kind: 'obj' }>).fields).length
+      return `${fields} field${fields === 1 ? '' : 's'}`
+    }
     default: {
       const obj = plan.obj
       return 'items' in obj ? String(obj.items.length) : ''
@@ -211,6 +217,12 @@ export function CanvasPanel({
                     <span className="viz-type">{KIND_LABEL[plan.kind]}</span>
                   )}
 
+                  {plan.kind === 'obj' && (
+                    <span className="viz-cls">
+                      {(plan.obj as Extract<HeapObj, { kind: 'obj' }>).cls}
+                    </span>
+                  )}
+
                   {sizeOf(plan) && <span className="viz-size">{sizeOf(plan)}</span>}
 
                   {plan.aliases.length > 0 && (
@@ -258,6 +270,12 @@ export function CanvasPanel({
                     obj={plan.obj as Extract<HeapObj, { items: never[] }>}
                     heap={heap}
                     mutated={mutatedIndices(plan.obj, previous?.heap[plan.heapId])}
+                  />
+                ) : plan.kind === 'obj' ? (
+                  <ObjRender
+                    obj={plan.obj as Extract<HeapObj, { kind: 'obj' }>}
+                    heap={heap}
+                    previousHeap={previous?.heap ?? {}}
                   />
                 ) : plan.kind === 'set' ? (
                   <SetRender
