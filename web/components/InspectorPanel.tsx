@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import { CallStackView } from '@/components/render/CallStack.tsx'
 import { RecursionTree } from '@/components/render/RecursionTree.tsx'
 import { buildCallTree, EMPTY_TREE } from '@/lib/callTree.ts'
-import { formatVal, previewHeap, pyType, toneOf } from '@/lib/format.ts'
+import { fullText, pyType, toneOf } from '@/lib/format.ts'
 import { innermostFrame } from '@/lib/infer.ts'
 import type { Snapshot, Trace } from '@/lib/trace/types.ts'
 
@@ -49,12 +49,10 @@ function VariablesView({ snapshot }: { snapshot: Snapshot }) {
         </thead>
         <tbody>
           {locals.map(([name, val]) => {
-            const target = 'ref' in val ? snapshot.heap[val.ref] : undefined
             // The type column already says `list`, so repeating `list[10]`
-            // here would waste the widest column. Show what is inside instead.
-            const value = target
-              ? previewHeap(target, snapshot.heap)
-              : formatVal(val, snapshot.heap)
+            // here would waste the widest column. Show what is inside instead,
+            // in full: this is the surface for reading values.
+            const value = fullText(val, snapshot.heap)
 
             return (
               <tr key={name}>

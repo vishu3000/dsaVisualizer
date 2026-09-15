@@ -94,6 +94,74 @@ export function cellText(val: Val, heap: Record<string, HeapObj>): string {
   }
 }
 
+/**
+ * How much of a value the Variables table will print before giving up.
+ *
+ * "Show the whole thing" is right until a list has 500 elements and the row
+ * becomes a wall. The budget is in characters rather than items so that ten
+ * nested lists and a hundred small integers are each allowed what they
+ * actually need.
+ */
+const FULL_BUDGET = 420
+
+/** Join parts until the budget runs out, then say so. */
+function joinWithin(parts: string[], open: string, close: string): string {
+  const kept: string[] = []
+  let used = 0
+
+  for (const part of parts) {
+    if (used + part.length > FULL_BUDGET) {
+      kept.push(`… ${parts.length - kept.length} more`)
+      break
+    }
+    kept.push(part)
+    used += part.length + 2
+  }
+  return `${open}${kept.join(', ')}${close}`
+}
+
+/**
+ * A value written out, for the Variables table.
+ *
+ * Goes one level further than cellText, because this is the surface for
+ * reading values rather than a box on a diagram: every element is listed, and
+ * a container nested inside shows its own contents instead of `list[2]`.
+ */
+export function fullText(val: Val, heap: Record<string, HeapObj>): string {
+  if (!('ref' in val)) return formatPrim(val.v)
+
+  const target = heap[val.ref]
+  if (!target) return '·'
+
+  switch (target.kind) {
+    case 'list':
+    case 'deque':
+      return joinWithin(target.items.map((item) => cellText(item, heap)), '[', ']')
+    case 'tuple':
+      return joinWithin(target.items.map((item) => cellText(item, heap)), '(', ')')
+    case 'set':
+      return joinWithin(target.items.map((item) => cellText(item, heap)), '{', '}')
+    case 'dict':
+      return joinWithin(
+        target.entries.map(
+          ([key, value]) => `${cellText(key, heap)}: ${cellText(value, heap)}`,
+        ),
+        '{',
+        '}',
+      )
+    case 'obj':
+      return joinWithin(
+        Object.entries(target.fields).map(
+          ([name, value]) => `${name}=${cellText(value, heap)}`,
+        ),
+        `${target.cls}(`,
+        ')',
+      )
+    case 'elided':
+      return `elided (${target.reason})`
+  }
+}
+
 const PREVIEW_ITEMS = 6
 
 /** One level deep: enough to recognise a value without unfolding the heap. */
