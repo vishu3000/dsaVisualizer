@@ -63,6 +63,37 @@ export function toneOf(val: Val): Tone {
   return 'string'
 }
 
+/**
+ * What a single cell or chip shows.
+ *
+ * A cell is a box on the canvas, not a row in a table, so `list[2]` names the
+ * shape and hides the thing the reader came to see. Containers show their
+ * contents; a container nested inside one of those falls back to the summary,
+ * which is what stops a cell from unfolding the whole heap.
+ *
+ * An object keeps its class name for the same reason — `Node(val=1,
+ * next=Node)` does not belong in a box the width of a number.
+ */
+export function cellText(val: Val, heap: Record<string, HeapObj>): string {
+  if (!('ref' in val)) return formatPrim(val.v)
+
+  const target = heap[val.ref]
+  if (!target) return '·'
+
+  switch (target.kind) {
+    case 'list':
+    case 'tuple':
+    case 'set':
+    case 'deque':
+    case 'dict':
+      return previewHeap(target, heap)
+    case 'obj':
+      return target.cls
+    case 'elided':
+      return '…'
+  }
+}
+
 const PREVIEW_ITEMS = 6
 
 /** One level deep: enough to recognise a value without unfolding the heap. */

@@ -2,14 +2,29 @@
 
 import { motion } from 'framer-motion'
 
+import { cellText } from '@/lib/format.ts'
 import { cellState, type ListInference } from '@/lib/infer.ts'
 import type { HeapObj, Val } from '@/lib/trace/types.ts'
 
 /** Above this, a grid of cells stops being readable and costs more than it shows. */
 export const MAX_CELLS = 128
 
-const CELL_MAX = 76
+/** Narrowest a cell gets, which is also what a number needs. */
+const CELL_MIN = 76
+/** Widest, past which a preview is ellipsed rather than shoving the row off-screen. */
+const CELL_MAX = 170
 const GAP = 8
+
+/**
+ * Cells size to their contents now that they carry them.
+ *
+ * The font is monospace, so width follows character count; past a handful of
+ * characters the text drops a size, which keeps a nested list from forcing
+ * cells three times the width of the numbers beside them.
+ */
+const DENSE_OVER = 7
+const CHAR_W = { normal: 9.2, dense: 7.6 }
+const CELL_PAD = 18
 
 /** How far a second-lane pointer label drops. One label height plus air. */
 const LANE_DROP = 22
@@ -20,36 +35,6 @@ type ListProps = {
   heap: Record<string, HeapObj>
   inference: ListInference
   mutated: Set<number>
-}
-
-function formatPrim(value: number | string | boolean | null): string {
-  if (value === null) return 'None'
-  if (value === true) return 'True'
-  if (value === false) return 'False'
-  return String(value)
-}
-
-/** Nested containers are summarised; the cell shows what it points at. */
-function formatRef(ref: string, heap: Record<string, HeapObj>): string {
-  const target = heap[ref]
-  if (!target) return '·'
-  switch (target.kind) {
-    case 'list':
-    case 'tuple':
-    case 'set':
-    case 'deque':
-      return `${target.kind}[${target.items.length}]`
-    case 'dict':
-      return `dict{${target.entries.length}}`
-    case 'obj':
-      return target.cls
-    case 'elided':
-      return '…'
-  }
-}
-
-function cellText(val: Val, heap: Record<string, HeapObj>): string {
-  return 'ref' in val ? formatRef(val.ref, heap) : formatPrim(val.v)
 }
 
 export function ListRender({ heapId, obj, heap, inference, mutated }: ListProps) {
@@ -68,8 +53,18 @@ export function ListRender({ heapId, obj, heap, inference, mutated }: ListProps)
     )
   }
 
-  const columns = `repeat(${count}, minmax(0, 1fr))`
-  const maxWidth = count * CELL_MAX + (count - 1) * GAP
+  const texts = items.map((val) => cellText(val, heap))
+  const longest = texts.reduce((widest, text) => Math.max(widest, text.length), 1)
+  const dense = longest > DENSE_OVER
+  const cellWidth = Math.min(
+    CELL_MAX,
+    Math.max(CELL_MIN, Math.ceil(longest * (dense ? CHAR_W.dense : CHAR_W.normal)) + CELL_PAD),
+  )
+
+  // A floor, not just a target: without it the grid squeezes cells below what
+  // their contents need and the text is cut at both ends rather than ellipsed.
+  const columns = `repeat(${count}, minmax(${cellWidth}px, 1fr))`
+  const maxWidth = count * cellWidth + (count - 1) * GAP
   const byIndex = new Map<number, typeof inference.pointers>()
   for (const pointer of inference.pointers) {
     const bucket = byIndex.get(pointer.index) ?? []
@@ -112,10 +107,14 @@ export function ListRender({ heapId, obj, heap, inference, mutated }: ListProps)
             layout
             key={`${heapId}:${index}`}
             transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-            className={`cell cell-${cellState(index, inference, mutated)}`}
-            title={cellText(val, heap)}
+            className={`cell cell-${cellState(index, inference, mutated)}${
+              dense ? ' cell-dense' : ''
+            }`}
+            title={texts[index]}
           >
-            {cellText(val, heap)}
+            {/* The span is what ellipses: text-overflow does not apply to a
+                flex container, only to a block inside one. */}
+            <span className="cell-text">{texts[index]}</span>
           </motion.div>
         ))}
       </div>

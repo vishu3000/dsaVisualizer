@@ -667,6 +667,10 @@ kbd {
   display: flex;
   flex-direction: column;
   margin-inline: auto;
+  /* Cells hold their width now, so a long row scrolls rather than shrinking.
+     All four rows live in here, so they scroll together and stay aligned. */
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .list-row {
@@ -692,11 +696,21 @@ kbd {
   font-size: 15px;
   font-weight: 500;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   background: var(--cell-bg);
   border: 1px solid var(--cell-bd);
   color: var(--text-code);
+}
+
+.cell-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Longer contents step down a size rather than widening every cell. */
+.cell-dense {
+  font-size: 12px;
 }
 
 .cell-active {

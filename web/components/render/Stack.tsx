@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-import { formatVal, toneOf } from '@/lib/format.ts'
+import { cellText, toneOf } from '@/lib/format.ts'
 import type { HeapObj, Val } from '@/lib/trace/types.ts'
 
 export const MAX_ROWS = 64
@@ -49,7 +49,7 @@ export function StackRender({ heapId, obj, heap, mutated }: StackProps) {
             }`}
           >
             <span className="stack-index">{index}</span>
-            <span className={`stack-value tone-${toneOf(val)}`}>{formatVal(val, heap)}</span>
+            <span className={`stack-value tone-${toneOf(val)}`}>{cellText(val, heap)}</span>
             {position === 0 && <span className="stack-tag">top</span>}
           </motion.div>
         ))}

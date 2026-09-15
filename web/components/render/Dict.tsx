@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-import { formatVal, toneOf } from '@/lib/format.ts'
+import { cellText, toneOf } from '@/lib/format.ts'
 import { valKey } from '@/lib/infer.ts'
 import type { HeapObj, Val } from '@/lib/trace/types.ts'
 
@@ -36,9 +36,9 @@ export function DictRender({ heapId, obj, heap, mutated }: DictProps) {
             transition={{ type: 'spring', stiffness: 520, damping: 38 }}
             className={mutated.has(id) ? 'bucket bucket-mutated' : 'bucket'}
           >
-            <span className={`bucket-key tone-${toneOf(key)}`}>{formatVal(key, heap)}</span>
+            <span className={`bucket-key tone-${toneOf(key)}`}>{cellText(key, heap)}</span>
             <span className="bucket-arrow">→</span>
-            <span className={`bucket-value tone-${toneOf(value)}`}>{formatVal(value, heap)}</span>
+            <span className={`bucket-value tone-${toneOf(value)}`}>{cellText(value, heap)}</span>
           </motion.div>
         )
       })}

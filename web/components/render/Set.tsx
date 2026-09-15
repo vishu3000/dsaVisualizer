@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-import { formatVal, toneOf } from '@/lib/format.ts'
+import { cellText, toneOf } from '@/lib/format.ts'
 import { valKey } from '@/lib/infer.ts'
 import type { HeapObj } from '@/lib/trace/types.ts'
 
@@ -35,7 +35,7 @@ export function SetRender({ heapId, obj, heap, mutated }: SetProps) {
             transition={{ type: 'spring', stiffness: 520, damping: 38 }}
             className={mutated.has(id) ? 'bucket bucket-solo bucket-mutated' : 'bucket bucket-solo'}
           >
-            <span className={`bucket-value tone-${toneOf(item)}`}>{formatVal(item, heap)}</span>
+            <span className={`bucket-value tone-${toneOf(item)}`}>{cellText(item, heap)}</span>
           </motion.div>
         )
       })}

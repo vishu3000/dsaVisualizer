@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-import { formatVal, toneOf } from '@/lib/format.ts'
+import { cellText, toneOf } from '@/lib/format.ts'
 import type { HeapObj, Val } from '@/lib/trace/types.ts'
 
 export const MAX_CELLS = 64
@@ -47,7 +47,7 @@ export function QueueRender({ heapId, obj, heap, mutated }: QueueProps) {
               index === 0 ? ' queue-cell-head' : ''
             }`}
           >
-            <span className={`queue-value tone-${toneOf(val)}`}>{formatVal(val, heap)}</span>
+            <span className={`queue-value tone-${toneOf(val)}`}>{cellText(val, heap)}</span>
             <span className="queue-index">{index}</span>
           </motion.div>
         ))}
