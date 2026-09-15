@@ -1,6 +1,6 @@
 'use client'
 
-import { formatVal, toneOf } from '@/lib/format.ts'
+import { fullText, toneOf } from '@/lib/format.ts'
 import type { Snapshot } from '@/lib/trace/types.ts'
 
 /** Frames innermost-first: the frame that is executing reads first. */
@@ -45,15 +45,19 @@ export function CallStackView({ snapshot }: { snapshot: Snapshot }) {
                   {locals.length === 0 ? (
                     <span className="local-empty">no locals</span>
                   ) : (
-                    locals.map(([name, val]) => (
-                      <span className="local-chip" key={name}>
-                        <span className="local-name">{name}</span>
-                        <span className="local-eq">=</span>
-                        <span className={`local-value tone-${toneOf(val)}`}>
-                          {formatVal(val, snapshot.heap)}
+                    locals.map(([name, val]) => {
+                      const value = fullText(val, snapshot.heap)
+                      return (
+                        // Chips sit in a wrapping row, so a long value is
+                        // ellipsed to keep one local from taking the whole
+                        // card; the title carries the rest.
+                        <span className="local-chip" key={name} title={`${name} = ${value}`}>
+                          <span className="local-name">{name}</span>
+                          <span className="local-eq">=</span>
+                          <span className={`local-value tone-${toneOf(val)}`}>{value}</span>
                         </span>
-                      </span>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               </div>

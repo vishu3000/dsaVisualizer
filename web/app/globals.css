@@ -1180,6 +1180,9 @@ kbd {
 }
 
 .local-value {
+  /* Wide enough for a small container, short enough that one local cannot
+     push every other chip onto its own line. */
+  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
