@@ -220,28 +220,14 @@ export function planCanvas(snapshot: Snapshot | null, viz: Record<string, string
   }
   const planned = new Set(plans.map((plan) => plan.heapId))
 
-  // Anonymous objects keep their own block unless a renderer already drew them.
-  for (const [heapId, obj] of unnamed) {
-    if (consumed.has(heapId)) continue
-    const kind = chooseKind(obj, undefined)
-    if (!kind || kind === 'tree' || kind === 'linkedlist') continue
-    plans.push({
-      kind: kind as 'list' | 'tuple' | 'deque' | 'dict' | 'set' | 'stack' | 'queue',
-      heapId,
-      name: null,
-      aliases: [],
-      obj,
-    })
-    planned.add(heapId)
-  }
+  // Objects no local points at are not drawn. They were given a block titled
+  // by their id() — `#85568` — which names a memory address and nothing a
+  // reader can act on, and there were six of them in bfs_graph for one list of
+  // tuples. The named block they belong to shows their contents now, and the
+  // raw dump below still holds every one of them.
 
-  // Shapes first. A graph or tree is what the reader came for, and it was
-  // landing below six anonymous tuple blocks from a raw edge list — the one
-  // drawing worth the space, off the bottom of the panel.
-  //
-  // Only shapes are promoted. Sorting named blocks ahead of anonymous ones as
-  // well reads worse, not better: dp_table's grid is a column of anonymous
-  // rows, and the loop's `row` would jump to the top of it.
+  // Shapes first: a graph or tree is what the reader came for, and it was
+  // landing below the flat blocks rather than at the top of the panel.
   const ordered = plans
     .map((plan, index) => ({ plan, index }))
     .sort(

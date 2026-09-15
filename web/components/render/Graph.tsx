@@ -3,9 +3,11 @@
 import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js'
 import { useEffect, useMemo, useState } from 'react'
 
+import { nodeWidth, shortLabel } from '@/lib/nodeLabel.ts'
 import type { GraphModel } from '@/lib/shapes.ts'
 
-const NODE_W = 64
+/** Narrowest a node gets; wider when its labels carry contents. */
+const NODE_MIN_W = 64
 const NODE_H = 46
 const PAD = 20
 
@@ -33,6 +35,11 @@ type GraphProps = {
 }
 
 export function GraphRender({ model, visited, pointers }: GraphProps) {
+  const NODE_W = useMemo(
+    () => nodeWidth(model.nodes.map((node) => node.label), NODE_MIN_W),
+    [model],
+  )
+
   // Re-layout only when the shape changes. Visiting a node must not make the
   // whole drawing jump, and elk is far too slow to run on every step.
   const signature = useMemo(
@@ -97,7 +104,7 @@ export function GraphRender({ model, visited, pointers }: GraphProps) {
     return () => {
       cancelled = true
     }
-  }, [signature, model])
+  }, [signature, model, NODE_W])
 
   const labels = useMemo(
     () => new Map(model.nodes.map((node) => [node.id, node.label])),
@@ -169,7 +176,10 @@ export function GraphRender({ model, visited, pointers }: GraphProps) {
                 textAnchor="middle"
                 dominantBaseline="central"
               >
-                {labels.get(node.id)}
+                {/* SVG has no ellipsis, so the cut is ours; the title carries
+                    whatever did not fit. */}
+                <title>{labels.get(node.id)}</title>
+                {shortLabel(labels.get(node.id) ?? '')}
               </text>
               {names.length > 0 && (
                 <text className="shape-caption" x={NODE_W / 2} y={NODE_H + 15} textAnchor="middle">

@@ -3,6 +3,8 @@
 import { hierarchy, tree } from 'd3-hierarchy'
 import { useMemo } from 'react'
 
+import { nodeWidth, shortLabel } from '@/lib/nodeLabel.ts'
+
 /** Shared shape for anything laid out as a binary tree: BST nodes and heap indices. */
 export type BinaryNode = {
   id: string
@@ -13,7 +15,8 @@ export type BinaryNode = {
   placeholder?: boolean
 }
 
-const NODE_W = 64
+/** Narrowest a node gets; wider when its labels carry contents. */
+const NODE_MIN_W = 64
 const NODE_H = 42
 const GAP_X = 22
 const GAP_Y = 78
@@ -40,8 +43,14 @@ type Props = {
 
 export function BinaryTreeSvg({ root, active, mutated }: Props) {
   const layout = useMemo(() => {
+    const laidOut = hierarchy(root, childrenOf)
+    const NODE_W = nodeWidth(
+      laidOut.descendants().filter((d) => !d.data.placeholder).map((d) => d.data.label),
+      NODE_MIN_W,
+    )
+
     // tree() returns point nodes with x/y resolved; the input node's are optional.
-    const laid = tree<BinaryNode>().nodeSize([NODE_W + GAP_X, GAP_Y])(hierarchy(root, childrenOf))
+    const laid = tree<BinaryNode>().nodeSize([NODE_W + GAP_X, GAP_Y])(laidOut)
 
     const points = laid.descendants()
     const xs = points.map((point) => point.x)
@@ -53,6 +62,7 @@ export function BinaryTreeSvg({ root, active, mutated }: Props) {
     return {
       points,
       links: laid.links(),
+      nodeW: NODE_W,
       offsetX: -minX + PAD + NODE_W / 2,
       width: maxX - minX + NODE_W + PAD * 2,
       height: maxY + NODE_H + PAD * 2,
@@ -99,15 +109,18 @@ export function BinaryTreeSvg({ root, active, mutated }: Props) {
           return (
             <g key={node.id} transform={`translate(${shift(point.x)}, ${top(point.y)})`}>
               <rect
-                x={-NODE_W / 2}
+                x={-layout.nodeW / 2}
                 y={-NODE_H / 2}
-                width={NODE_W}
+                width={layout.nodeW}
                 height={NODE_H}
                 rx={8}
                 className={`shape-node ${state}`}
               />
               <text className="shape-label" textAnchor="middle" dominantBaseline="central">
-                {node.label}
+                {/* SVG has no ellipsis, so the cut is ours; the title carries
+                    whatever did not fit. */}
+                <title>{node.label}</title>
+                {shortLabel(node.label)}
               </text>
             </g>
           )

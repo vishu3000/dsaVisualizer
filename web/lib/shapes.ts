@@ -5,7 +5,7 @@
 // into the shape the user meant, and report which heap ids they absorbed so the
 // canvas does not also draw them standalone.
 
-import { formatVal } from './format.ts'
+import { cellText } from './format.ts'
 import type { Frame, HeapObj, Val } from './trace/types.ts'
 
 export const MAX_NODES = 300
@@ -33,10 +33,10 @@ export function labelOf(obj: HeapObj | undefined, heap: Record<string, HeapObj>)
   if (!obj || obj.kind !== 'obj') return '·'
 
   const payload = firstField(obj, LABEL_FIELDS)
-  if (payload) return formatVal(payload, heap)
+  if (payload) return cellText(payload, heap)
 
   for (const value of Object.values(obj.fields)) {
-    if (!('ref' in value)) return formatVal(value, heap)
+    if (!('ref' in value)) return cellText(value, heap)
   }
   return obj.cls
 }
@@ -80,7 +80,7 @@ export function buildGraph(
   }
 
   for (const [key, value] of obj.entries) {
-    const from = ensure(formatVal(key, heap))
+    const from = ensure(cellText(key, heap))
 
     const listRef = refOf(value)
     if (!listRef) continue
@@ -91,7 +91,7 @@ export function buildGraph(
     consumed.add(listRef)
 
     for (const item of neighbours.items) {
-      const to = ensure(formatVal(item, heap))
+      const to = ensure(cellText(item, heap))
 
       // `b` already lists `a`: fold the pair rather than drawing it twice.
       const back = placed.get(`${to}|${from}`)
@@ -133,14 +133,14 @@ export function graphHighlights(
     if ('ref' in val) {
       const obj = heap[val.ref]
       if (!obj || obj.kind !== 'set' || obj.items.length === 0) continue
-      const labels = obj.items.map((item) => formatVal(item, heap))
+      const labels = obj.items.map((item) => cellText(item, heap))
       if (labels.every((label) => ids.has(label))) {
         for (const label of labels) visited.add(label)
       }
       continue
     }
 
-    const label = formatVal(val, heap)
+    const label = cellText(val, heap)
     if (!ids.has(label)) continue
     const bucket = pointers.get(label) ?? []
     bucket.push(name)
@@ -281,7 +281,7 @@ export function buildHeapTree(
     if (index >= items.length) return null
     return {
       index,
-      label: formatVal(items[index], heap),
+      label: cellText(items[index], heap),
       left: walk(2 * index + 1),
       right: walk(2 * index + 2),
     }
