@@ -34,6 +34,27 @@ export function formatVal(val: Val, heap: Record<string, HeapObj>): string {
   return 'ref' in val ? formatRef(val.ref, heap) : formatPrim(val.v)
 }
 
+/**
+ * The Python type name for a value, for the badge beside a variable.
+ *
+ * A ref reports what the heap object actually is; a primitive is read back off
+ * the JSON, which is why int and float are told apart by Number.isInteger
+ * rather than by anything the tracer recorded.
+ */
+export function pyType(val: Val, heap: Record<string, HeapObj>): string {
+  if ('ref' in val) {
+    const target = heap[val.ref]
+    if (!target) return 'ref'
+    return target.kind === 'obj' ? target.cls : target.kind
+  }
+
+  const value = val.v
+  if (value === null) return 'None'
+  if (typeof value === 'boolean') return 'bool'
+  if (typeof value === 'string') return 'str'
+  return Number.isInteger(value) ? 'int' : 'float'
+}
+
 export function toneOf(val: Val): Tone {
   if ('ref' in val) return 'ref'
   if (val.v === null) return 'none'

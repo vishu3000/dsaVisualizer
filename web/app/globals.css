@@ -1011,6 +1011,12 @@ kbd {
   align-items: start;
 }
 
+@container inspector (max-width: 560px) {
+  .stack-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .frames {
   display: flex;
   flex-direction: column;
@@ -1020,49 +1026,83 @@ kbd {
 
 .frame-card {
   display: flex;
-  align-items: flex-start;
-  gap: 18px;
+  align-items: stretch;
+  gap: 12px;
   border: 1px solid var(--card-bd);
-  border-radius: 6px;
+  border-radius: 7px;
   background: var(--card-bg);
-  padding: 9px 12px;
+  padding: 9px 12px 10px;
   min-width: 0;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .frame-card-active {
-  border-color: var(--cell-bd);
-  border-left: 2px solid var(--exec);
+  border-color: rgb(244 114 182 / 34%);
   background: var(--card-active-bg);
+  box-shadow: 0 0 0 1px rgb(244 114 182 / 10%);
+}
+
+/* The rail is what makes a column of cards read as one stack. */
+.frame-rail {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding-top: 1px;
+}
+
+.frame-depth {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--chip-bg);
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+.frame-card-active .frame-depth {
+  color: var(--exec-text);
+  border-color: rgb(244 114 182 / 45%);
+  background: rgb(244 114 182 / 14%);
+}
+
+/* Drawn downward, toward the frame that called this one. */
+.frame-thread {
+  flex: 1;
+  width: 1px;
+  min-height: 10px;
+  background: linear-gradient(var(--border-strong), transparent);
+}
+
+.frame-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
 .frame-id {
   display: flex;
-  align-items: center;
-  gap: 9px;
-  flex: none;
-  min-width: 168px;
-}
-
-.frame-badge {
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1;
-  color: var(--text-dim);
-  background: var(--chip-bg);
-  border-radius: 3px;
-  padding: 4px 5px;
-}
-
-.frame-badge-active {
-  color: var(--exec-text);
-  background: rgb(244 114 182 / 14%);
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
 }
 
 .frame-fn {
   font-family: var(--font-mono), monospace;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text);
+  word-break: break-word;
 }
 
 .frame-card-active .frame-fn {
@@ -1070,33 +1110,64 @@ kbd {
 }
 
 .frame-line {
+  flex: none;
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-meta);
 }
 
-.frame-card-active .frame-line {
-  color: var(--text-dim);
+.frame-tag {
+  flex: none;
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--exec-text);
+  background: rgb(244 114 182 / 12%);
+  border-radius: 3px;
+  padding: 3px 6px;
 }
 
 .frame-locals {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
 }
 
 .local-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   line-height: 1;
-  color: var(--syn-operator);
   background: var(--chip-bg);
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 7px;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.frame-card-active .local-chip {
+  border-color: var(--border-strong);
+}
+
+.local-name {
+  color: var(--text-dim);
+}
+
+.local-eq {
+  color: var(--text-disabled);
+}
+
+.local-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .local-empty {
@@ -1236,64 +1307,162 @@ kbd {
 
 /* ── Variables ─────────────────────────────────────────────────────────── */
 
-.variables {
+/* ── Variables ─────────────────────────────────────────────────────────── */
+
+.vars {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
 }
 
-.variables-head {
+.vars-head {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 9px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
 }
 
-.variables-scope {
+.vars-scope {
   font-family: var(--font-mono), monospace;
   font-size: 11.5px;
   color: var(--text-hi);
 }
 
-.variables-count {
+.vars-count {
   font-size: 10.5px;
   color: var(--text-gutter);
 }
 
-.variables-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono), monospace;
-  font-size: 11.5px;
+.vars-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.variables-table td {
-  padding: 4px 10px 4px 0;
-  vertical-align: top;
-  border-bottom: 1px solid var(--border);
+.var-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  border-left: 2px solid transparent;
+}
+
+.var-row:hover {
+  background: var(--card-bg);
+  border-left-color: var(--border-strong);
+}
+
+.var-line {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
 }
 
 .var-name {
-  width: 1%;
-  white-space: nowrap;
+  flex: none;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-hi);
 }
 
-.var-type {
-  width: 1%;
+/* The type, not the value: what `arr` IS reads before what it holds. */
+.var-kind {
+  flex: none;
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--text-meta);
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 5px;
+}
+
+.var-value {
+  min-width: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .var-preview {
-  color: var(--text-dim);
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-gutter);
   word-break: break-word;
+  /* Indented under the name it belongs to. */
+  padding-left: 2px;
 }
 
-.variables-stdout {
+/* ── Stdout ────────────────────────────────────────────────────────────── */
+
+.stdout {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+  gap: 9px;
+  min-height: 0;
+}
+
+.stdout-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stdout-body {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--card-bd);
+  border-radius: 6px;
+  background: var(--cell-dim-bg);
+  padding: 6px 0;
+  overflow: auto;
+}
+
+.stdout-line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 12px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+/* Printed at this step, so the eye lands on what just happened. */
+.stdout-line-new {
+  background: var(--exec-line-bg);
+  box-shadow: inset 2px 0 0 var(--exec);
+}
+
+.stdout-no {
+  flex: none;
+  width: 18px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--text-disabled);
+  user-select: none;
+}
+
+.stdout-line-new .stdout-no {
+  color: var(--exec-text);
+}
+
+.stdout-text {
+  min-width: 0;
+  color: var(--text-code);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Inspector */
@@ -1359,6 +1528,7 @@ kbd {
   min-height: 0;
   overflow: auto;
   padding: 10px 12px;
+  container: inspector / inline-size;
 }
 
 /* ── JSON dumps (renderers land in M6) ─────────────────────────────────── */

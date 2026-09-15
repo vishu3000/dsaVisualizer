@@ -18,6 +18,7 @@ export function CallStackView({ snapshot }: { snapshot: Snapshot }) {
         .reverse()
         .map(({ frame, index }, position) => {
           const innermost = position === 0
+          const outermost = position === frames.length - 1
           const locals = Object.entries(frame.locals)
 
           return (
@@ -25,27 +26,36 @@ export function CallStackView({ snapshot }: { snapshot: Snapshot }) {
               key={`${index}:${frame.fn}`}
               className={innermost ? 'frame-card frame-card-active' : 'frame-card'}
             >
-              <div className="frame-id">
-                <span className={innermost ? 'frame-badge frame-badge-active' : 'frame-badge'}>
-                  #{index}
-                </span>
-                <span className="frame-fn">{frame.fn}</span>
-                <span className="frame-line">:{frame.line}</span>
+              {/* A rail down the left so the frames read as one stack rather
+                  than a list of unrelated cards. It stops at the module frame,
+                  which nothing called. */}
+              <div className="frame-rail">
+                <span className="frame-depth">{index}</span>
+                {!outermost && <span className="frame-thread" aria-hidden="true" />}
               </div>
 
-              <div className="frame-locals">
-                {locals.length === 0 ? (
-                  <span className="local-empty">no locals</span>
-                ) : (
-                  locals.map(([name, val]) => (
-                    <span className="local-chip" key={name}>
-                      {name}{' '}
-                      <span className={`local-value tone-${toneOf(val)}`}>
-                        {formatVal(val, snapshot.heap)}
+              <div className="frame-main">
+                <div className="frame-id">
+                  <span className="frame-fn">{frame.fn}</span>
+                  <span className="frame-line">line {frame.line}</span>
+                  {innermost && <span className="frame-tag">running</span>}
+                </div>
+
+                <div className="frame-locals">
+                  {locals.length === 0 ? (
+                    <span className="local-empty">no locals</span>
+                  ) : (
+                    locals.map(([name, val]) => (
+                      <span className="local-chip" key={name}>
+                        <span className="local-name">{name}</span>
+                        <span className="local-eq">=</span>
+                        <span className={`local-value tone-${toneOf(val)}`}>
+                          {formatVal(val, snapshot.heap)}
+                        </span>
                       </span>
-                    </span>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           )

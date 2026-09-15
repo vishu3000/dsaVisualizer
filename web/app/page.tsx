@@ -178,6 +178,7 @@ export default function Page() {
 
           <InspectorPanel
             snapshot={snapshot}
+            previous={previous}
             trace={trace}
             step={currentStep}
             onSeek={(target) => usePlayer.getState().seek(target)}
