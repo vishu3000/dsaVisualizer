@@ -1,5 +1,5 @@
 {
-  "name": "dsa-visualizer-web",
+  "name": "pytrace-web",
   "version": "0.1.0",
   "private": true,
   "scripts": {

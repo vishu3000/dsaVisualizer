@@ -2054,11 +2054,9 @@ kbd {
 }
 
 .brand-mark {
-  width: 9px;
-  height: 9px;
   flex: none;
-  border-radius: 2px;
-  background: var(--exec);
+  display: block;
+  border-radius: 4px;
 }
 
 .brand-name {

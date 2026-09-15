@@ -8,6 +8,8 @@ export type PaneLayout = {
 }
 
 const DEFAULTS: PaneLayout = { editor: 520, canvas: 0.62 }
+// Kept at the old name on purpose: renaming the key would silently reset
+// every saved pane layout, and nobody reads it.
 const STORAGE_KEY = 'dsa-visualizer:layout'
 
 export const LIMITS = {

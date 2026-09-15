@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Geist, IBM_Plex_Mono } from 'next/font/google'
 
+import { APP_NAME } from '@/lib/brand.ts'
+
 import './globals.css'
 
 const geist = Geist({
@@ -17,9 +19,12 @@ const plexMono = IBM_Plex_Mono({
   display: 'swap',
 })
 
+// No `title` here on purpose: page.tsx renders the <title> element so it can
+// name the loaded problem, and a title in both places emits two of them —
+// whichever lands first in <head> wins, which is not the one that tracks.
 export const metadata: Metadata = {
-  title: 'DSA Visualizer',
-  description: 'Step through recorded Python execution traces.',
+  description: 'Write Python, watch it run — every step, every object.',
+  applicationName: APP_NAME,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

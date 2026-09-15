@@ -9,6 +9,7 @@ import { InspectorPanel } from '@/components/InspectorPanel.tsx'
 import { SamplesModal } from '@/components/SamplesModal.tsx'
 import { Splitter } from '@/components/Splitter.tsx'
 import { TransportBar } from '@/components/TransportBar.tsx'
+import { APP_NAME, documentTitle } from '@/lib/brand.ts'
 import { PROBLEM_SLUGS, findProblem } from '@/lib/problems.ts'
 import { encodeProblem, encodeSource, parseHash, writeHash } from '@/lib/share.ts'
 import { BASE_INTERVAL_MS, usePlayer, usePreviousSnapshot, useSnapshot } from '@/lib/store.ts'
@@ -89,8 +90,17 @@ export default function Page() {
   const loaded = dirty || origin === 'live' ? null : fixture
   const headerLabel = loaded ? (findProblem(loaded)?.title ?? loaded) : 'Scratch'
 
+  // Before anything is loaded — which is the state the export is rendered in —
+  // there is no problem to name, so the tab is just the app.
+  const titleText = source === '' && !fixture ? APP_NAME : documentTitle(headerLabel)
+
   return (
     <div className="app">
+      {/* React hoists this into <head>. Rendered rather than assigned in an
+          effect: document.title set imperatively races head hydration on the
+          first load and loses, leaving the tab on the bare app name. */}
+      <title>{titleText}</title>
+
       <Header
         label={headerLabel}
         disabled={running}

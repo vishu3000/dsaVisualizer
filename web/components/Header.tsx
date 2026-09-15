@@ -1,5 +1,8 @@
 'use client'
 
+import { Mark } from '@/components/Mark.tsx'
+import { APP_NAME } from '@/lib/brand.ts'
+
 type HeaderProps = {
   /** What is loaded right now, shown beside the title. */
   label: string
@@ -23,8 +26,8 @@ export function Header({ label, disabled, onSamples, onNew }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-brand">
-        <span className="brand-mark" aria-hidden="true" />
-        <span className="brand-name">DSA Visualizer</span>
+        <Mark />
+        <span className="brand-name">{APP_NAME}</span>
         <span className="brand-sep" aria-hidden="true">
           /
         </span>
