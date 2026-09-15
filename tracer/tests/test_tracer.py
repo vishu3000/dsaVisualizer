@@ -609,3 +609,34 @@ def test_bare_kind_reaches_a_tuple_unpack_and_a_loop():
         "first": "list",
         "second": "list",
     }
+
+
+def test_bare_kind_does_not_leak_into_a_body():
+    # `# queue` above a class means the class; binding it to the first
+    # `self.x = ...` inside would be wrong and hard to notice.
+    trace = run(
+        """
+        # queue
+        class Bag:
+            def __init__(self):
+                self.items = []
+
+        bag = Bag()
+        print(bag.items)
+        """
+    )
+    assert trace["meta"]["viz"] == {}
+
+
+def test_bare_kind_still_works_inside_a_function():
+    trace = run(
+        """
+        def build():
+            # list
+            rows = [1, 2]
+            return rows
+
+        print(build())
+        """
+    )
+    assert trace["meta"]["viz"] == {"rows": "list"}

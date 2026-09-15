@@ -96,8 +96,16 @@ def parse_kind_comments(source, tree):
     if not wanted:
         return {}
 
+    # A hint must not jump into a body. `# queue` above `class Queue:` meant
+    # the class, and silently binding it to the first `self.x = ...` inside is
+    # both wrong and hard to notice; above a `def` it could bind to a real
+    # local and draw the wrong thing.
+    blockers = set()
     targets = {}
     for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            blockers.add(node.lineno)
+            continue
         if isinstance(node, ast.Assign):
             names = [name for target in node.targets for name in _bound_names(target)]
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.For)):
@@ -113,6 +121,9 @@ def parse_kind_comments(source, tree):
         # `adj = {}  # graph` means adj, not whatever comes next.
         at = line if trailing else next((after for after in ordered if after > line), None)
         if at is None or at not in targets:
+            continue
+        # Something opened a body between the comment and that statement.
+        if not trailing and any(line < blocker < at for blocker in blockers):
             continue
         for name in targets[at]:
             hints.setdefault(name, kind)
