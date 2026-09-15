@@ -11,6 +11,7 @@ import {
   innermostFrame,
   intLocals,
   mutatedIndices,
+  indexNamesFor,
   namesForRef,
   valueCursors,
 } from './infer.ts'
@@ -28,9 +29,9 @@ function steps(name: string): Snapshot[] {
   return Array.from({ length: trace.meta.steps }, (_, i) => reconstruct(trace, i))
 }
 
-/** What the tracer recorded as subscripted, the way the app passes it in. */
-function indexNamesOf(name: string): string[] | null {
-  return load(name).meta.indexNames ?? null
+/** What the tracer recorded for one list, the way the app resolves it. */
+function indexNamesOf(fixture: string, local: string): string[] | null {
+  return indexNamesFor([local], load(fixture).meta.indexNames ?? null)
 }
 
 /** The list bound to `name` in the innermost frame, if there is one. */
@@ -62,7 +63,7 @@ describe('intLocals', () => {
 
 describe('binary_search', () => {
   const snapshots = steps('binary_search')
-  const indexNames = indexNamesOf('binary_search')
+  const indexNames = indexNamesOf('binary_search', 'arr')
 
   it('pairs lo/hi into a span and leaves mid as a lone pointer', () => {
     const withAll = snapshots.filter((step) => {
@@ -165,7 +166,7 @@ describe('binary_search', () => {
 
 describe('sliding_window', () => {
   const snapshots = steps('sliding_window')
-  const indexNames = indexNamesOf('sliding_window')
+  const indexNames = indexNamesOf('sliding_window', 'chars')
 
   it('pairs left/right into a span', () => {
     const withBoth = snapshots.filter((step) => {
@@ -394,5 +395,53 @@ describe('value cursors', () => {
       inference.pointers.map((p) => [p.name, p.index, p.kind]),
       [['i', 5, 'index']],
     )
+  })
+})
+
+describe('two lists in one frame', () => {
+  // The reported case: iterate over one array and the other grew a pointer
+  // that advanced alongside it, because the index names were one flat set.
+  const recorded = { a: ['i'] }
+  const frame = {
+    fn: 'compare',
+    line: 4,
+    locals: { a: { ref: 'A' }, b: { ref: 'B' }, i: { v: 2 } },
+  } as never
+
+  it('resolves index names per list', () => {
+    assert.deepEqual(indexNamesFor(['a'], recorded), ['i'])
+    assert.deepEqual(indexNamesFor(['b'], recorded), [])
+  })
+
+  it('points into the list the program indexes', () => {
+    const inference = inferForList(frame, 6, indexNamesFor(['a'], recorded))
+    assert.deepEqual(
+      inference.pointers.map((p) => p.name),
+      ['i'],
+    )
+    assert.ok(inference.active.has(2))
+  })
+
+  it('leaves the other list alone', () => {
+    const inference = inferForList(frame, 6, indexNamesFor(['b'], recorded))
+    assert.deepEqual(inference.pointers, [])
+    assert.equal(inference.active.size, 0)
+  })
+
+  it('does not shade a pair over a list nothing indexes', () => {
+    // lo/hi are a recognised pair, but a list the program never subscripts
+    // has nothing pointing into it whatever the names are.
+    const searching = {
+      fn: 'f',
+      line: 2,
+      locals: { a: { ref: 'A' }, b: { ref: 'B' }, lo: { v: 1 }, hi: { v: 4 } },
+    } as never
+
+    assert.equal(inferForList(searching, 6, indexNamesFor(['b'], recorded)).spans.length, 0)
+    assert.equal(inferForList(searching, 6, indexNamesFor(['a'], recorded)).spans.length, 1)
+  })
+
+  it('follows an alias, since a list is often reachable by two names', () => {
+    assert.deepEqual(indexNamesFor(['prices', 'arr'], { arr: ['mid'] }), ['mid'])
   })
 })

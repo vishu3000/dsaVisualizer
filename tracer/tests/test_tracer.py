@@ -446,7 +446,7 @@ def test_index_names_are_the_ones_used_as_subscripts():
         """
     )
     # Nothing is ever subscripted here, so nothing is a cursor.
-    assert trace["meta"]["indexNames"] == []
+    assert trace["meta"]["indexNames"] == {}
 
 
 def test_index_names_include_arithmetic_and_slices():
@@ -463,15 +463,15 @@ def test_index_names_include_arithmetic_and_slices():
         print(total, part, got)
         """
     )
-    # `mid` bare and inside mid + 1; lo/hi from the slice. A literal key is not
-    # a name, so "k" contributes nothing.
-    assert trace["meta"]["indexNames"] == ["hi", "lo", "mid"]
+    # `mid` bare and inside mid + 1; lo/hi from the slice, both against `arr`.
+    # A literal key is not a name, so "k" contributes nothing to `pairs`.
+    assert trace["meta"]["indexNames"] == {"arr": ["hi", "lo", "mid"]}
 
 
 def test_index_names_survive_a_syntax_error():
     trace = run_trace("def f(:\n    pass\n")
     assert trace["meta"]["error"]["type"] == "SyntaxError"
-    assert trace["meta"]["indexNames"] == []
+    assert trace["meta"]["indexNames"] == {}
 
 
 def test_iter_names_record_loops_that_walk_a_container():
@@ -507,3 +507,33 @@ def test_iter_names_skip_expressions_and_tuple_targets():
     # A subscript, a tuple target, a freshly sorted copy and range() all walk
     # something other than a container the reader is looking at.
     assert trace["meta"]["iterNames"] == {}
+
+
+def test_index_names_are_kept_per_container():
+    # The reported case: iterating one of two arrays put a pointer on both,
+    # because the names were recorded as one flat set.
+    trace = run(
+        """
+        a = [1, 2, 3]
+        b = [9, 8, 7]
+        total = 0
+        for i in range(len(a)):
+            total += a[i]
+        print(total, b)
+        """
+    )
+    assert trace["meta"]["indexNames"] == {"a": ["i"]}
+
+
+def test_chained_subscripts_attribute_to_their_base():
+    trace = run(
+        """
+        table = [[0, 0], [0, 0]]
+        i = 1
+        j = 1
+        table[i][j] = 5
+        print(table)
+        """
+    )
+    # Both indices belong to `table`; the inner subscript is not its own name.
+    assert trace["meta"]["indexNames"] == {"table": ["i", "j"]}

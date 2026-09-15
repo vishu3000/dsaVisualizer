@@ -42,32 +42,52 @@ def parse_viz_hints(source):
     return hints
 
 
-def parse_index_names(tree):
-    """Names the program uses to index something: the `i` in `arr[i]`.
+def _subscript_base(node):
+    """The name being indexed: `table` for both `table[i]` and `table[i][j]`."""
+    current = node
+    while isinstance(current, ast.Subscript):
+        current = current.value
 
-    Pointer inference draws an arrow for any int local that happens to land
-    inside a visualised list, which catches accumulators and loop values that
-    have nothing to do with it — `max_profit = 4` over a six-element list of
-    prices looks exactly like a cursor at cell 4. A name that never appears
-    inside brackets is not an index, and the source says so outright.
+    if isinstance(current, ast.Name):
+        return current.id
+    # self.grid[i] is indexing `grid`, whatever object holds it.
+    if isinstance(current, ast.Attribute):
+        return current.attr
+    return None
+
+
+def parse_index_names(tree):
+    """Which names index which container: `{arr: [mid], table: [i, j]}`.
+
+    Pointer inference would otherwise draw an arrow for any int local that
+    happens to land inside a visualised list, which catches accumulators and
+    loop values that have nothing to do with it — `max_profit = 4` over a
+    six-element list of prices looks exactly like a cursor at cell 4.
+
+    Keyed by container, not a flat set, because a flat set puts `i` on every
+    list in scope at once: iterate over one of two arrays and both grow a
+    pointer and appear to advance together. The source says which one `i`
+    indexes, so that is what is recorded.
 
     The whole subscript expression is walked rather than only a bare Name, so
-    `arr[mid + 1]` and `table[i - 1]` count. Slices are included: the lo and
-    hi of `arr[lo:hi]` are indices too.
-
-    The set is not tied to a particular list. Resolving `arr` back to a heap
-    object would mean following aliases and parameter names through the whole
-    program, and the extra precision is not worth that: a name used to index
-    anything is a plausible cursor, and the in-range check still has to pass.
+    `arr[mid + 1]` and `table[i - 1]` count, and slices contribute the lo and
+    hi of `arr[lo:hi]`. A chained subscript is attributed to its base, which
+    is what gives `table` both i and j from `table[i][j]`.
     """
-    names = set()
+    names = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.Subscript):
             continue
+
+        base = _subscript_base(node)
+        if base is None:
+            continue
+
         for inner in ast.walk(node.slice):
             if isinstance(inner, ast.Name):
-                names.add(inner.id)
-    return sorted(names)
+                names.setdefault(base, set()).add(inner.id)
+
+    return {base: sorted(found) for base, found in sorted(names.items())}
 
 
 def parse_iter_names(tree):
@@ -255,12 +275,12 @@ def _py_error(exc):
     }
 
 
-def _result(steps, truncated, error, viz, index_names=(), iter_names=None):
+def _result(steps, truncated, error, viz, index_names=None, iter_names=None):
     meta = {
         "steps": len(steps),
         "truncated": truncated,
         "viz": viz,
-        "indexNames": list(index_names),
+        "indexNames": dict(index_names or {}),
         "iterNames": dict(iter_names or {}),
     }
     if error is not None:

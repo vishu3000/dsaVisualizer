@@ -114,14 +114,24 @@ to carry: it is keyed by local name, wins over the source's own hint, survives
 stepping and re-running, and is cleared when another problem is loaded.
 
 ## Pointer inference (lib/infer.ts)
-For each int local in the innermost frame: if `0 <= v < len(list)` for a
-visualized list AND the name is one the source subscripts with (`meta.indexNames`,
-collected from the AST: the `i` in `arr[i]`, `arr[i + 1]`, `arr[lo:hi]`), render
-a labeled arrow beneath that cell. If two such names pair up (lo/hi, left/right,
-start/end, i/j), shade the span between them; a recognized pair is drawn whether
-or not it is subscripted, since `lo`/`hi` are often only compared and reassigned.
+`meta.indexNames` is collected from the AST and keyed by container —
+`{arr: [mid], table: [i, j]}` — from the `i` in `arr[i]`, `arr[i + 1]` and
+`arr[lo:hi]`. A chained subscript is attributed to its base, which is what gives
+`table` both i and j from `table[i][j]`.
 
-Value alone is not enough to identify a cursor: `max_profit = 4` over a
+For a visualized list, resolve that map through every name bound to it. If the
+result is empty the program never indexes this list, and it gets no pointers and
+no shading at all. Otherwise, each int local in the innermost frame with
+`0 <= v < len(list)` whose name is in the resolved set renders a labeled arrow
+beneath that cell, and if two of the names pair up (lo/hi, left/right, start/end,
+i/j) the span between them is shaded. A recognized pair draws whether or not it
+is itself subscripted, since `lo`/`hi` are often only compared and reassigned.
+
+Keyed by container, not a flat set: a flat set puts the loop's `i` on every list
+in scope at once, so iterating one of two arrays made both grow a pointer and
+appear to advance together.
+
+Value alone is not enough to identify a cursor either: `max_profit = 4` over a
 six-element list is indistinguishable from an index into it, and `for x in xs`
 binds elements that are usually valid indices into their own list.
 

@@ -99,7 +99,28 @@ export function valueCursors(
 }
 
 /**
- * @param indexNames Names the source actually subscripts, from meta.indexNames.
+ * The index names recorded for a list, given every name bound to it.
+ *
+ * A list is often reachable by more than one name — a parameter inside the
+ * function, the caller's name outside it — and the source may subscript it
+ * through any of them.
+ */
+export function indexNamesFor(
+  names: (string | null)[],
+  recorded: Record<string, string[]> | null,
+): string[] | null {
+  if (recorded === null) return null
+
+  const found = new Set<string>()
+  for (const name of names) {
+    if (name === null) continue
+    for (const index of recorded[name] ?? []) found.add(index)
+  }
+  return [...found]
+}
+
+/**
+ * @param indexNames Names the source actually subscripts for THIS list.
  *   Being an int that lands inside the list is not enough to be a cursor —
  *   `max_profit = 4` over six prices looks identical to one. Pass null for a
  *   trace recorded before the tracer reported this, where every in-range int
@@ -118,9 +139,14 @@ export function inferForList(
   const indexes = (value: number) => value >= 0 && value < length
   const subscripts = indexNames === null ? null : new Set(indexNames)
 
+  // Nothing in the program indexes this list, so nothing points into it —
+  // pairs included. Without this, `lo`/`hi` from a search over one array
+  // would shade a second, unrelated array sitting beside it.
+  const indexable = subscripts === null || subscripts.size > 0
+
   const spans: SpanHit[] = []
   const paired = new Set<string>()
-  for (const [a, b] of POINTER_PAIRS) {
+  for (const [a, b] of (indexable ? POINTER_PAIRS : [])) {
     const av = ints.get(a)
     const bv = ints.get(b)
     if (av === undefined || bv === undefined) continue
@@ -137,7 +163,7 @@ export function inferForList(
     paired.has(name) || subscripts === null || subscripts.has(name)
 
   const pointers: PointerHit[] = []
-  for (const [name, value] of ints) {
+  for (const [name, value] of (indexable ? ints : [])) {
     if (indexes(value) && isCursor(name)) {
       pointers.push({ name, index: value, paired: paired.has(name), kind: 'index' })
     }

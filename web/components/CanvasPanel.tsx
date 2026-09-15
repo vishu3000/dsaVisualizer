@@ -19,6 +19,7 @@ import {
   mutatedEntries,
   mutatedIndices,
   mutatedMembers,
+  indexNamesFor,
   valueCursors,
 } from '@/lib/infer.ts'
 import type { ProgressResponse } from '@/lib/pyodide/messages.ts'
@@ -275,7 +276,9 @@ export function CanvasPanel({
                         ? inferForList(
                             frame,
                             plan.obj.items.length,
-                            indexNames,
+                            // Resolved for THIS list: a flat set would put the
+                            // loop's `i` on every array in scope at once.
+                            indexNamesFor([plan.name, ...plan.aliases], indexNames),
                             frame
                               ? valueCursors(frame, plan.obj.items, plan.heapId, iterNames)
                               : undefined,
