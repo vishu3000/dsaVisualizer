@@ -21,10 +21,8 @@ type TreeProps = {
 export function TreeRender({ model, active }: TreeProps) {
   return (
     <div className="shape-frame">
+      {/* No node count here: the block's title chip already carries it. */}
       <BinaryTreeSvg root={toBinary(model.root)} active={active} />
-      <div className="shape-meta">
-        {model.size} node{model.size === 1 ? '' : 's'}
-      </div>
     </div>
   )
 }

@@ -39,7 +39,7 @@ function refOfLocal(snapshot: Snapshot, name: string): string | null {
 describe('graph from dict of lists', () => {
   const snapshots = steps('bfs_graph')
 
-  it('builds 6 nodes and 12 directed edges from the adjacency map', () => {
+  it('builds 6 nodes and folds each undirected pair into one edge', () => {
     const last = snapshots[snapshots.length - 1]
     const adjRef = refOfLocal(last, 'adj')!
     const model = buildGraph(last.heap[adjRef], last.heap)!
@@ -49,8 +49,44 @@ describe('graph from dict of lists', () => {
       model.nodes.map((node) => node.id).sort(),
       ['0', '1', '2', '3', '4', '5'],
     )
-    // 6 undirected edges recorded in both directions.
-    assert.equal(model.edges.length, 12)
+
+    // The adjacency records every edge in both directions. Drawing both would
+    // put two lines with opposing arrowheads between every pair.
+    assert.equal(model.edges.length, 6)
+    assert.deepEqual(
+      model.edges.map((edge) => `${edge.from}-${edge.to}`).sort(),
+      ['0-1', '0-2', '1-3', '2-4', '3-5', '4-5'],
+    )
+    for (const edge of model.edges) {
+      assert.equal(edge.mutual, true, `${edge.from}-${edge.to} should be mutual`)
+    }
+  })
+
+  it('keeps a one-way edge directed', () => {
+    // A directed graph lists the reverse nowhere, so the arrow has to stay.
+    const heap = {
+      L1: { kind: 'list' as const, items: [{ v: 'b' }] },
+      L2: { kind: 'list' as const, items: [] },
+    }
+    const dict = {
+      kind: 'dict' as const,
+      entries: [
+        [{ v: 'a' }, { ref: 'L1' }],
+        [{ v: 'b' }, { ref: 'L2' }],
+      ],
+    }
+
+    const model = buildGraph(dict as never, heap as never)!
+    assert.equal(model.edges.length, 1)
+    assert.equal(model.edges[0].mutual, false)
+  })
+
+  it('draws a repeated neighbour once', () => {
+    const heap = { L1: { kind: 'list' as const, items: [{ v: 'b' }, { v: 'b' }] } }
+    const dict = { kind: 'dict' as const, entries: [[{ v: 'a' }, { ref: 'L1' }]] }
+
+    const model = buildGraph(dict as never, heap as never)!
+    assert.equal(model.edges.length, 1)
   })
 
   it('absorbs the adjacency lists so they are not drawn twice', () => {

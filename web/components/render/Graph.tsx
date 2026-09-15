@@ -5,9 +5,19 @@ import { useEffect, useMemo, useState } from 'react'
 
 import type { GraphModel } from '@/lib/shapes.ts'
 
-const NODE_W = 44
-const NODE_H = 34
-const PAD = 14
+const NODE_W = 64
+const NODE_H = 46
+const PAD = 20
+
+/**
+ * How far past its natural size the drawing may be scaled up.
+ *
+ * The SVG used to be capped at exactly its laid-out width, so a graph sat
+ * small in the middle of a wide canvas with nothing gained. Letting it grow
+ * fills the space, and the cap stops a three-node graph from becoming a
+ * billboard.
+ */
+const MAX_GROWTH = 1.7
 
 type Placed = {
   width: number
@@ -44,8 +54,8 @@ export function GraphRender({ model, visited, pointers }: GraphProps) {
       layoutOptions: {
         'elk.algorithm': 'layered',
         'elk.direction': 'RIGHT',
-        'elk.spacing.nodeNode': '26',
-        'elk.layered.spacing.nodeNodeBetweenLayers': '52',
+        'elk.spacing.nodeNode': '34',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '76',
         'elk.edgeRouting': 'POLYLINE',
       },
       children: model.nodes.map((node) => ({ id: node.id, width: NODE_W, height: NODE_H })),
@@ -108,7 +118,7 @@ export function GraphRender({ model, visited, pointers }: GraphProps) {
       <svg
         className="shape-svg"
         viewBox={`0 0 ${placed.width} ${placed.height}`}
-        style={{ maxWidth: placed.width, width: '100%' }}
+        style={{ maxWidth: placed.width * MAX_GROWTH, width: '100%' }}
         role="img"
       >
         <defs>
@@ -117,8 +127,8 @@ export function GraphRender({ model, visited, pointers }: GraphProps) {
             viewBox="0 0 8 8"
             refX="7"
             refY="4"
-            markerWidth="6"
-            markerHeight="6"
+            markerWidth="8"
+            markerHeight="8"
             orient="auto"
           >
             <path d="M0 0 L8 4 L0 8 z" className="shape-arrowhead" />
@@ -135,7 +145,7 @@ export function GraphRender({ model, visited, pointers }: GraphProps) {
               key={edge.id}
               points={edge.points.map((point) => `${point.x},${point.y}`).join(' ')}
               className={taken ? 'shape-edge shape-edge-taken' : 'shape-edge'}
-              markerEnd="url(#graph-arrow)"
+              markerEnd={ends?.mutual ? undefined : 'url(#graph-arrow)'}
               fill="none"
             />
           )
@@ -151,7 +161,7 @@ export function GraphRender({ model, visited, pointers }: GraphProps) {
 
           return (
             <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
-              <rect width={NODE_W} height={NODE_H} rx={17} className={`shape-node ${state}`} />
+              <rect width={NODE_W} height={NODE_H} rx={23} className={`shape-node ${state}`} />
               <text
                 className="shape-label"
                 x={NODE_W / 2}
@@ -162,7 +172,7 @@ export function GraphRender({ model, visited, pointers }: GraphProps) {
                 {labels.get(node.id)}
               </text>
               {names.length > 0 && (
-                <text className="shape-caption" x={NODE_W / 2} y={NODE_H + 13} textAnchor="middle">
+                <text className="shape-caption" x={NODE_W / 2} y={NODE_H + 15} textAnchor="middle">
                   {names.join(' ')}
                 </text>
               )}

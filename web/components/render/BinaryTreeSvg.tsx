@@ -13,11 +13,14 @@ export type BinaryNode = {
   placeholder?: boolean
 }
 
-const NODE_W = 46
-const NODE_H = 30
-const GAP_X = 16
-const GAP_Y = 56
-const PAD = 18
+const NODE_W = 64
+const NODE_H = 42
+const GAP_X = 22
+const GAP_Y = 78
+const PAD = 22
+
+/** How far past its laid-out width the tree may be scaled up. See Graph.tsx. */
+const MAX_GROWTH = 1.7
 
 function childrenOf(node: BinaryNode): BinaryNode[] | null {
   if (!node.left && !node.right) return null
@@ -63,7 +66,7 @@ export function BinaryTreeSvg({ root, active, mutated }: Props) {
     <svg
       className="shape-svg"
       viewBox={`0 0 ${layout.width} ${layout.height}`}
-      style={{ maxWidth: layout.width, width: '100%' }}
+      style={{ maxWidth: layout.width * MAX_GROWTH, width: '100%' }}
       role="img"
     >
       <g>
@@ -100,7 +103,7 @@ export function BinaryTreeSvg({ root, active, mutated }: Props) {
                 y={-NODE_H / 2}
                 width={NODE_W}
                 height={NODE_H}
-                rx={6}
+                rx={8}
                 className={`shape-node ${state}`}
               />
               <text className="shape-label" textAnchor="middle" dominantBaseline="central">

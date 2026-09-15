@@ -84,6 +84,9 @@ export type CanvasPlan = {
 /** Below this a tree or chain is a single object, not a shape. */
 export const MIN_SHAPE_NODES = 2
 
+/** Kinds drawn as a diagram rather than a row of cells. */
+const SHAPE_KINDS = new Set<RendererKind>(['graph', 'tree', 'linkedlist', 'heap'])
+
 /**
  * Drawings a sequence of items can legitimately be given.
  *
@@ -232,6 +235,22 @@ export function planCanvas(snapshot: Snapshot | null, viz: Record<string, string
     planned.add(heapId)
   }
 
+  // Shapes first. A graph or tree is what the reader came for, and it was
+  // landing below six anonymous tuple blocks from a raw edge list — the one
+  // drawing worth the space, off the bottom of the panel.
+  //
+  // Only shapes are promoted. Sorting named blocks ahead of anonymous ones as
+  // well reads worse, not better: dp_table's grid is a column of anonymous
+  // rows, and the loop's `row` would jump to the top of it.
+  const ordered = plans
+    .map((plan, index) => ({ plan, index }))
+    .sort(
+      (a, b) =>
+        Number(SHAPE_KINDS.has(b.plan.kind)) - Number(SHAPE_KINDS.has(a.plan.kind)) ||
+        a.index - b.index,
+    )
+    .map(({ plan }) => plan)
+
   const rest = entries.filter(([heapId]) => !planned.has(heapId) && !consumed.has(heapId))
-  return { plans, consumed, rest }
+  return { plans: ordered, consumed, rest }
 }

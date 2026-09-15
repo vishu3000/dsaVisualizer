@@ -44,7 +44,18 @@ export function labelOf(obj: HeapObj | undefined, heap: Record<string, HeapObj>)
 // ── Graph: dict[key] = list ────────────────────────────────────────────────
 
 export type GraphNode = { id: string; label: string }
-export type GraphEdge = { id: string; from: string; to: string }
+export type GraphEdge = {
+  id: string
+  from: string
+  to: string
+  /**
+   * True when the adjacency also lists the reverse. An undirected graph is
+   * stored as both directions, so drawing each entry would put two lines with
+   * opposing arrowheads between every pair — and imply a direction the graph
+   * does not have. The pair is folded into one edge, drawn without arrows.
+   */
+  mutual: boolean
+}
 export type GraphModel = {
   nodes: GraphNode[]
   edges: GraphEdge[]
@@ -60,6 +71,8 @@ export function buildGraph(
   const nodes = new Map<string, GraphNode>()
   const edges: GraphEdge[] = []
   const consumed = new Set<string>()
+  /** "from|to" -> index in `edges`, so a reverse entry can find its partner. */
+  const placed = new Map<string, number>()
 
   const ensure = (label: string) => {
     if (!nodes.has(label)) nodes.set(label, { id: label, label })
@@ -79,7 +92,18 @@ export function buildGraph(
 
     for (const item of neighbours.items) {
       const to = ensure(formatVal(item, heap))
-      edges.push({ id: `${from}->${to}#${edges.length}`, from, to })
+
+      // `b` already lists `a`: fold the pair rather than drawing it twice.
+      const back = placed.get(`${to}|${from}`)
+      if (back !== undefined && to !== from) {
+        edges[back].mutual = true
+        continue
+      }
+      // A repeated neighbour is the same edge, not a second one.
+      if (placed.has(`${from}|${to}`)) continue
+
+      placed.set(`${from}|${to}`, edges.length)
+      edges.push({ id: `${from}->${to}#${edges.length}`, from, to, mutual: false })
     }
   }
 
