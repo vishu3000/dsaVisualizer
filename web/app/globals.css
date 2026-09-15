@@ -1334,48 +1334,64 @@ kbd {
   color: var(--text-gutter);
 }
 
-.vars-list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.var-row {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 6px 8px;
-  border-radius: 5px;
-  border-left: 2px solid transparent;
-}
-
-.var-row:hover {
-  background: var(--card-bg);
-  border-left-color: var(--border-strong);
-}
-
-.var-line {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  min-width: 0;
-}
-
-.var-name {
-  flex: none;
+.vars-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  table-layout: auto;
+}
+
+.vars-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-gutter);
+  background: var(--bg-panel);
+  padding: 0 10px 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vars-table td {
+  padding: 6px 10px 6px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.vars-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.vars-table tbody tr:hover td {
+  background: var(--card-bg);
+}
+
+/* Name and type are as wide as their content; the value takes the rest. */
+.var-name {
+  width: 1%;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 500;
   color: var(--text-hi);
 }
 
-/* The type, not the value: what `arr` IS reads before what it holds. */
+.vars-table td:nth-child(2) {
+  width: 1%;
+  white-space: nowrap;
+}
+
 .var-kind {
-  flex: none;
-  font-family: var(--font-mono), monospace;
+  display: inline-block;
   font-size: 9.5px;
+  line-height: 1;
   letter-spacing: 0.04em;
-  text-transform: lowercase;
   color: var(--text-meta);
   background: var(--chip-bg);
   border: 1px solid var(--border);
@@ -1385,21 +1401,7 @@ kbd {
 
 .var-value {
   min-width: 0;
-  font-family: var(--font-mono), monospace;
-  font-size: 11.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.var-preview {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--text-gutter);
   word-break: break-word;
-  /* Indented under the name it belongs to. */
-  padding-left: 2px;
 }
 
 /* ── Stdout ────────────────────────────────────────────────────────────── */

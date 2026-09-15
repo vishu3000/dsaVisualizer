@@ -39,27 +39,37 @@ function VariablesView({ snapshot }: { snapshot: Snapshot }) {
         </span>
       </div>
 
-      <div className="vars-list">
-        {locals.map(([name, val]) => {
-          const target = 'ref' in val ? snapshot.heap[val.ref] : undefined
-          const preview = target ? previewHeap(target, snapshot.heap) : null
+      <table className="vars-table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Type</th>
+            <th scope="col">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {locals.map(([name, val]) => {
+            const target = 'ref' in val ? snapshot.heap[val.ref] : undefined
+            // The type column already says `list`, so repeating `list[10]`
+            // here would waste the widest column. Show what is inside instead.
+            const value = target
+              ? previewHeap(target, snapshot.heap)
+              : formatVal(val, snapshot.heap)
 
-          return (
-            <div className="var-row" key={name}>
-              <div className="var-line">
-                <span className="var-name">{name}</span>
-                <span className="var-kind">{pyType(val, snapshot.heap)}</span>
-                <span className={`var-value tone-${toneOf(val)}`}>
-                  {formatVal(val, snapshot.heap)}
-                </span>
-              </div>
-
-              {/* Only a container has anything more to say than its summary. */}
-              {preview && <div className="var-preview">{preview}</div>}
-            </div>
-          )
-        })}
-      </div>
+            return (
+              <tr key={name}>
+                <td className="var-name">{name}</td>
+                <td>
+                  <span className="var-kind">{pyType(val, snapshot.heap)}</span>
+                </td>
+                <td className={`var-value tone-${toneOf(val)}`} title={value}>
+                  {value}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
