@@ -25,6 +25,9 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   description: 'Write Python, watch it run — every step, every object.',
   applicationName: APP_NAME,
+  // Proves ownership to Google Search Console. The token is public by design:
+  // it only means something to Google paired with this domain.
+  verification: { google: 'pQH2VBMFygWO9jNz_BqI7Fmk-OjZKryRJ3o5mnhB5uk' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
