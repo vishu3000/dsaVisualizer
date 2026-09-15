@@ -77,8 +77,15 @@ type PyError = { type: string; message: string; line: number; traceback: string 
   everything that ran successfully before the throw.
 - Import whitelist: collections, heapq, math, bisect, functools, itertools,
   typing, string, re. Reject others with a clear message.
-- `# @viz <kind> <varname>` comments are parsed out of source and returned in
-  meta as a render override map.
+- Render hints are parsed out of source and returned in meta as an override
+  map, in two forms:
+  - `# @viz <kind> <varname>` names its variable outright.
+  - a comment that is nothing but a kind — `# graph`, `#tree`, `# linkedlist` —
+    applies to whatever the next statement binds, or to its own line when it
+    trails code. Resolved through the AST, so it finds the target of a tuple
+    unpack, an annotated assignment or a `for`. Only an exact match counts:
+    "# the graph we built" is prose. The long form wins where both name a
+    variable.
 
 ## Delta encoding
 - delta.py computes JSON-Patch ops between consecutive snapshots.

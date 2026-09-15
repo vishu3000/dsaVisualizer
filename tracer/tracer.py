@@ -12,7 +12,7 @@ import sys
 import traceback
 import types
 
-from .limits import IMPORT_WHITELIST, STEP_CAP, USER_FILENAME, StepLimit
+from .limits import IMPORT_WHITELIST, STEP_CAP, USER_FILENAME, VIZ_KINDS, StepLimit
 from .serialize import serialize_value
 
 _SKIPPED_LOCAL_TYPES = (
@@ -39,6 +39,83 @@ def parse_viz_hints(source):
         parts = comment.strip().split()
         if len(parts) == 3 and parts[0] == "@viz":
             hints[parts[2]] = parts[1]
+    return hints
+
+
+def _bare_kind_lines(source):
+    """Comments that are nothing but a renderer name, as {line: (kind, trailing)}.
+
+    `trailing` marks a comment with code in front of it, which annotates the
+    line it sits on rather than the one below.
+    """
+    found = {}
+    for number, raw in enumerate(source.splitlines(), start=1):
+        before, sep, comment = raw.partition("#")
+        if not sep:
+            continue
+        # Only a comment that is exactly the kind. "# the graph we built" is
+        # prose, and reading it as an instruction would be worse than useless.
+        word = comment.strip().lower()
+        if word in VIZ_KINDS:
+            found[number] = (word, before.strip() != "")
+    return found
+
+
+def _bound_names(node):
+    """Every name an assignment or loop target binds.
+
+    Each target shape is handled by hand rather than walked: walking
+    `self.items` finds `self` as well, and hinting the object because someone
+    annotated one of its fields is not what the comment said.
+    """
+    if isinstance(node, ast.Name):
+        return [node.id]
+    # self.items = [...] declares `items` as far as a reader is concerned,
+    # even though it never becomes a local of that name.
+    if isinstance(node, ast.Attribute):
+        return [node.attr]
+    if isinstance(node, (ast.Tuple, ast.List)):
+        return [name for element in node.elts for name in _bound_names(element)]
+    if isinstance(node, ast.Starred):
+        return _bound_names(node.value)
+    return []
+
+
+def parse_kind_comments(source, tree):
+    """`# graph` on the line above a declaration, as {varname: kind}.
+
+    The long form names its variable — `# @viz graph adj` — which is precise
+    but means writing the name twice. A bare kind applies to whatever the next
+    statement binds, so the comment sits where a reader would write it anyway.
+
+    Resolved through the AST rather than by matching `name =` in the text, so
+    it finds the target of a tuple unpack, an annotated assignment or a `for`,
+    and is not fooled by an `=` inside a string.
+    """
+    wanted = _bare_kind_lines(source)
+    if not wanted:
+        return {}
+
+    targets = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            names = [name for target in node.targets for name in _bound_names(target)]
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.For)):
+            names = _bound_names(node.target)
+        else:
+            continue
+        if names:
+            targets.setdefault(node.lineno, []).extend(names)
+
+    ordered = sorted(targets)
+    hints = {}
+    for line, (kind, trailing) in sorted(wanted.items()):
+        # `adj = {}  # graph` means adj, not whatever comes next.
+        at = line if trailing else next((after for after in ordered if after > line), None)
+        if at is None or at not in targets:
+            continue
+        for name in targets[at]:
+            hints.setdefault(name, kind)
     return hints
 
 
@@ -173,6 +250,10 @@ def run_trace(source):
             },
             viz,
         )
+
+    # Long form wins: it names its variable outright, so it is the more
+    # deliberate of the two.
+    viz = {**parse_kind_comments(source, tree), **viz}
 
     index_names = parse_index_names(tree)
     iter_names = parse_iter_names(tree)

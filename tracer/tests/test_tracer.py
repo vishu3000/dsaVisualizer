@@ -537,3 +537,75 @@ def test_chained_subscripts_attribute_to_their_base():
     )
     # Both indices belong to `table`; the inner subscript is not its own name.
     assert trace["meta"]["indexNames"] == {"table": ["i", "j"]}
+
+
+def test_bare_kind_comment_hints_the_next_declaration():
+    trace = run(
+        """
+        # graph
+        adj = {0: [1], 1: [0]}
+
+        # queue
+        pending = [1, 2]
+        print(adj, pending)
+        """
+    )
+    assert trace["meta"]["viz"] == {"adj": "graph", "pending": "queue"}
+
+
+def test_trailing_kind_comment_hints_its_own_line():
+    trace = run(
+        """
+        adj = {0: [1]}  # graph
+        other = []
+        print(adj, other)
+        """
+    )
+    assert trace["meta"]["viz"] == {"adj": "graph"}
+
+
+def test_prose_is_not_a_hint():
+    trace = run(
+        """
+        # the graph we built earlier
+        # tree of results
+        adj = {0: [1]}
+        print(adj)
+        """
+    )
+    # Only a comment that is exactly a kind counts; these are sentences.
+    assert trace["meta"]["viz"] == {}
+
+
+def test_explicit_viz_wins_over_a_bare_kind():
+    trace = run(
+        """
+        # @viz graph adj
+        # queue
+        adj = {0: [1]}
+        print(adj)
+        """
+    )
+    # The long form names its variable outright, so it is the deliberate one.
+    assert trace["meta"]["viz"] == {"adj": "graph"}
+
+
+def test_bare_kind_reaches_a_tuple_unpack_and_a_loop():
+    trace = run(
+        """
+        rows = [[1], [2]]
+
+        # list
+        for row in rows:
+            print(row)
+
+        # list
+        first, second = rows
+        print(first, second)
+        """
+    )
+    assert trace["meta"]["viz"] == {
+        "row": "list",
+        "first": "list",
+        "second": "list",
+    }
