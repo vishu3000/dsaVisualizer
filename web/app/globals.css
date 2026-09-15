@@ -478,12 +478,15 @@ kbd {
   display: grid;
   grid-template-rows: 65% 35%;
   min-height: 0;
+  min-width: 0;
 }
 
 .canvas {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   border-bottom: 1px solid var(--border);
   background: var(--bg-app);
 }
@@ -497,6 +500,7 @@ kbd {
 .canvas-body {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: auto;
   padding: 12px 14px;
   display: flex;
@@ -582,7 +586,6 @@ kbd {
 .viz-title {
   display: flex;
   align-items: baseline;
-  justify-content: center;
   gap: 9px;
   margin-bottom: 10px;
 }
@@ -666,11 +669,9 @@ kbd {
 .list-render {
   display: flex;
   flex-direction: column;
-  margin-inline: auto;
-  /* Cells hold their width now, so a long row scrolls rather than shrinking.
-     All four rows live in here, so they scroll together and stay aligned. */
-  overflow-x: auto;
-  padding-bottom: 2px;
+  /* No scroller of its own: the canvas is the one that scrolls, so the cells,
+     indexes and pointers move together with everything else on the row. */
+  width: max-content;
 }
 
 .list-row {
@@ -838,13 +839,11 @@ kbd {
   flex-direction: column;
   gap: 4px;
   max-width: 520px;
-  margin-inline: auto;
 }
 
 .buckets-wrap {
   flex-direction: row;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 6px;
 }
 
@@ -915,7 +914,7 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .shape-svg {
@@ -994,14 +993,12 @@ kbd {
   flex: none;
   width: 100%;
   max-width: 680px;
-  margin-inline: auto;
   margin-top: 6px;
   border-top: 1px solid var(--border);
   padding-top: 10px;
 }
 
 .viz-rest summary {
-  text-align: center;
   cursor: pointer;
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -1601,7 +1598,6 @@ kbd {
   flex: none;
   width: 100%;
   max-width: 680px;
-  margin-inline: auto;
   border: 1px solid rgb(248 113 113 / 30%);
   border-left: 2px solid var(--error);
   border-radius: 6px;
@@ -1887,7 +1883,6 @@ kbd {
   gap: 3px;
   width: max-content;
   min-width: 172px;
-  margin-inline: auto;
 }
 
 .stack-row {
@@ -1965,7 +1960,6 @@ kbd {
 .queue-frame {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
 }
