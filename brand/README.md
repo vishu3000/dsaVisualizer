@@ -13,3 +13,18 @@ screens, which do not take SVG.
 Colors are the app's own tokens — `--bg-app` #0d0e12, `--cell-bd` #2b2e38,
 `--exec` #f472b6, `--window` #38bdf8 — so the icon and the canvas cannot
 drift apart.
+
+## Social card
+
+`web/app/opengraph-image.png` is the 1200x630 Open Graph / Twitter card.
+
+It is a static file rather than a generated `opengraph-image.tsx` route on
+purpose: the generated form is emitted as `out/opengraph-image` with no
+extension, which a plain static host serves as `application/octet-stream` —
+and crawlers reject an image that is not typed as one. A `.png` file keeps
+its type everywhere.
+
+`opengraph-card.tsx` here is what drew it, using `next/og`. To change the
+card, drop that file back into `web/app/` as `opengraph-image.tsx`, run
+`npm run build`, copy `out/opengraph-image` over `web/app/opengraph-image.png`,
+and move it back. Keep `opengraph-image.alt.txt` in step with what it says.

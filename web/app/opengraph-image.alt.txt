@@ -1,0 +1,1 @@
+Pytrace — Write Python, watch it run. A browser Python visualiser showing lists, dictionaries, stacks, queues, graphs, trees and the call stack.

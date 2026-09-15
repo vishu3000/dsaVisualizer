@@ -9,7 +9,7 @@ import { InspectorPanel } from '@/components/InspectorPanel.tsx'
 import { SamplesModal } from '@/components/SamplesModal.tsx'
 import { Splitter } from '@/components/Splitter.tsx'
 import { TransportBar } from '@/components/TransportBar.tsx'
-import { APP_NAME, documentTitle } from '@/lib/brand.ts'
+import { APP_SEO_TITLE, documentTitle } from '@/lib/brand.ts'
 import { PROBLEM_SLUGS, findProblem } from '@/lib/problems.ts'
 import { encodeProblem, encodeSource, parseHash, writeHash } from '@/lib/share.ts'
 import { BASE_INTERVAL_MS, usePlayer, usePreviousSnapshot, useSnapshot } from '@/lib/store.ts'
@@ -90,9 +90,10 @@ export default function Page() {
   const loaded = dirty || origin === 'live' ? null : fixture
   const headerLabel = loaded ? (findProblem(loaded)?.title ?? loaded) : 'Scratch'
 
-  // Before anything is loaded — which is the state the export is rendered in —
-  // there is no problem to name, so the tab is just the app.
-  const titleText = source === '' && !fixture ? APP_NAME : documentTitle(headerLabel)
+  // Before anything is loaded — which is the state the export is rendered in,
+  // and so the one a crawler reads — there is no problem to name, so the title
+  // describes the app instead.
+  const titleText = source === '' && !fixture ? APP_SEO_TITLE : documentTitle(headerLabel)
 
   return (
     <div className="app">

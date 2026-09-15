@@ -27,7 +27,9 @@ export function Header({ label, disabled, onSamples, onNew }: HeaderProps) {
     <header className="header">
       <div className="header-brand">
         <Mark />
-        <span className="brand-name">{APP_NAME}</span>
+        {/* The page's one h1. Visually identical to the span it replaces; a
+            page with no heading at all is a weaker search result. */}
+        <h1 className="brand-name">{APP_NAME}</h1>
         <span className="brand-sep" aria-hidden="true">
           /
         </span>

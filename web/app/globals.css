@@ -2060,6 +2060,7 @@ kbd {
 }
 
 .brand-name {
+  margin: 0;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--text-hi);
